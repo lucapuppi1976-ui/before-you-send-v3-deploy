@@ -44,11 +44,10 @@ VISION_MODEL = os.getenv('BYS_VISION_MODEL', TEXT_MODEL)
 TRANSCRIBE_MODEL = os.getenv('BYS_TRANSCRIBE_MODEL', 'gpt-4o-mini-transcribe')
 TIMEOUT_SECONDS = int(os.getenv('BYS_TIMEOUT_SECONDS', '120'))
 DEBUG = os.getenv('BYS_DEBUG', 'false').lower() == 'true'
-PUBLIC_DEPLOY = os.getenv('BYS_PUBLIC_DEPLOY', 'true').lower() == 'true'
 
 SUPPORTED_LANGS = {'it', 'en', 'es'}
 
-app = FastAPI(title='Before You Send Live AI Prototype V2')
+app = FastAPI(title='Before You Send')
 app.add_middleware(
     CORSMiddleware,
     allow_origins=['*'],
@@ -479,10 +478,7 @@ def score_outgoing_text(text: str, lang: str) -> Dict[str, Any]:
 
 @app.get('/api/health')
 def api_health() -> Dict[str, Any]:
-    payload = {'ok': True, 'apiConfigured': bool(OPENAI_API_KEY), 'supportedLanguages': sorted(SUPPORTED_LANGS)}
-    if DEBUG and not PUBLIC_DEPLOY:
-        payload['models'] = {'text': TEXT_MODEL, 'vision': VISION_MODEL, 'transcribe': TRANSCRIBE_MODEL}
-    return payload
+    return {'ok': True, 'apiConfigured': bool(OPENAI_API_KEY), 'models': {'text': TEXT_MODEL, 'vision': VISION_MODEL, 'transcribe': TRANSCRIBE_MODEL}, 'supportedLanguages': sorted(SUPPORTED_LANGS)}
 
 
 @app.post('/api/decode/text')

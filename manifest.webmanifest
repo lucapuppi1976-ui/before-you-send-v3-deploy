@@ -1,7 +1,7 @@
 {
-  "name": "Before You Send \u2014 Multilingual Prototype",
+  "name": "Before You Send",
   "short_name": "BYS",
-  "description": "Prototype PWA multilingual of Before You Send: understand what they meant and check how your message sounds before you send it.",
+  "description": "Understand what they meant. Check how your message sounds before you send it.",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0b1220",

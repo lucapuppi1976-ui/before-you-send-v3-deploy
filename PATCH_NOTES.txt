@@ -1,0 +1,9 @@
+PATCH NOTES
+
+Fix principali
+- Home eyebrow: PRIVATE/PRIVADO -> EARLY ACCESS / ACCESSO ANTICIPATO / ACCESO ANTICIPADO
+- Onboarding step 3: eliminato riferimento al server locale sul computer
+- Install banner copy reso adatto a un deploy pubblico
+- Manifest PWA ripulito da "Prototype"
+- FastAPI title ripulito da "Prototype V2"
+- Aggiunto .gitignore per evitare __pycache__ e .env nel repo
