@@ -479,19 +479,99 @@ function downloadShareCard(filename) {
   const gradient = ctx.createLinearGradient(0,0,0,canvas.height); gradient.addColorStop(0,'#14203f'); gradient.addColorStop(1,'#0a1020'); ctx.fillStyle = gradient; ctx.fillRect(0,0,canvas.width,canvas.height);
   const glow = ctx.createRadialGradient(canvas.width*0.2, canvas.height*0.15, 40, canvas.width*0.2, canvas.height*0.15, 520); glow.addColorStop(0,'rgba(138, 162, 255, 0.45)'); glow.addColorStop(1,'rgba(138, 162, 255, 0)'); ctx.fillStyle = glow; ctx.fillRect(0,0,canvas.width,canvas.height);
   roundRect(ctx,56,80,canvas.width-112,canvas.height-160,42,'rgba(255,255,255,0.06)','rgba(255,255,255,0.10)');
-  ctx.fillStyle = '#c3d0ff'; ctx.font = '600 40px Inter, Arial'; ctx.fillText(String(lastSharePayload.badge).toUpperCase(),96,160);
-  ctx.fillStyle = '#ffffff'; ctx.font = '800 88px Inter, Arial'; wrapText(ctx,lastSharePayload.title,96,260,canvas.width-192,98);
-  ctx.fillStyle = '#b8c3da'; ctx.font = '500 42px Inter, Arial'; wrapText(ctx,lastSharePayload.subtitle,96,500,canvas.width-192,54);
-  let y = 720; lastSharePayload.chips.forEach((ch)=>{ roundRect(ctx,96,y-36,520,76,38,'rgba(138,162,255,0.16)','rgba(138,162,255,0.24)'); ctx.fillStyle='#eff3ff'; ctx.font='600 34px Inter, Arial'; ctx.fillText(ch,126,y+10); y += 98; });
+
+  ctx.fillStyle = '#c3d0ff';
+  ctx.font = '600 40px Inter, Arial';
+  ctx.fillText(String(lastSharePayload.badge).toUpperCase(),96,160);
+
+  const titleBottom = fitWrappedText(ctx, lastSharePayload.title, 96, 260, canvas.width-192, {
+    color: '#ffffff',
+    weight: 800,
+    maxFontSize: 88,
+    minFontSize: 56,
+    lineHeightFactor: 1.02,
+    maxLines: 4
+  });
+
+  const subtitleBottom = fitWrappedText(ctx, lastSharePayload.subtitle, 96, Math.max(460, titleBottom + 72), canvas.width-192, {
+    color: '#b8c3da',
+    weight: 500,
+    maxFontSize: 42,
+    minFontSize: 30,
+    lineHeightFactor: 1.15,
+    maxLines: 4
+  });
+
+  let y = Math.max(720, subtitleBottom + 120);
+  lastSharePayload.chips.forEach((ch) => {
+    roundRect(ctx,96,y-36,520,76,38,'rgba(138,162,255,0.16)','rgba(138,162,255,0.24)');
+    ctx.fillStyle='#eff3ff';
+    ctx.font='600 34px Inter, Arial';
+    ctx.fillText(ch,126,y+10);
+    y += 98;
+  });
+
   roundRect(ctx,96,1440,canvas.width-192,220,36,'rgba(255,255,255,0.04)','rgba(255,255,255,0.10)');
   ctx.fillStyle='#ffffff'; ctx.font='800 56px Inter, Arial'; ctx.fillText(t('app.name'),132,1525);
-  ctx.fillStyle='#b8c3da'; ctx.font='500 34px Inter, Arial'; wrapText(ctx,t('share.decode'),132,1590,canvas.width-264,44);
+  fitWrappedText(ctx, t('share.decode'), 132, 1590, canvas.width-264, {
+    color: '#b8c3da',
+    weight: 500,
+    maxFontSize: 34,
+    minFontSize: 28,
+    lineHeightFactor: 1.1,
+    maxLines: 2
+  });
   ctx.fillStyle='#8ea4ff'; ctx.font='600 28px Inter, Arial'; ctx.fillText(lastSharePayload.footer,132,1662);
+
   const link = document.createElement('a'); link.download = filename; link.href = canvas.toDataURL('image/png'); link.click();
 }
 
 function roundRect(ctx, x, y, w, h, r, fill, stroke) { ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); if (fill){ctx.fillStyle=fill;ctx.fill();} if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.stroke();}}
-function wrapText(ctx, text, x, y, maxWidth, lineHeight) { const words = String(text).split(' '); let line=''; for (let n=0;n<words.length;n++){const testLine=line+words[n]+' '; const metrics=ctx.measureText(testLine); if(metrics.width>maxWidth && n>0){ctx.fillText(line,x,y); line=words[n]+' '; y += lineHeight;} else { line=testLine; }} ctx.fillText(line,x,y); }
+function wrapTextLines(ctx, text, maxWidth) {
+  const words = String(text ?? '').trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return [''];
+  const lines = [];
+  let line = '';
+  for (let i = 0; i < words.length; i++) {
+    const testLine = line ? `${line} ${words[i]}` : words[i];
+    if (ctx.measureText(testLine).width > maxWidth && line) {
+      lines.push(line);
+      line = words[i];
+    } else {
+      line = testLine;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+function clampTextToWidth(ctx, text, maxWidth) {
+  let out = String(text ?? '').trim();
+  if (ctx.measureText(out).width <= maxWidth) return out;
+  while (out.length > 1 && ctx.measureText(`${out}…`).width > maxWidth) out = out.slice(0, -1).trim();
+  return `${out}…`;
+}
+function fitWrappedText(ctx, text, x, y, maxWidth, options = {}) {
+  const { color = '#ffffff', weight = 800, maxFontSize = 88, minFontSize = 30, lineHeightFactor = 1.08, maxLines = 4 } = options;
+  let fontSize = maxFontSize;
+  let lines = [];
+  while (fontSize >= minFontSize) {
+    ctx.font = `${weight} ${fontSize}px Inter, Arial`;
+    lines = wrapTextLines(ctx, text, maxWidth);
+    if (lines.length <= maxLines) break;
+    fontSize -= 4;
+  }
+  ctx.font = `${weight} ${fontSize}px Inter, Arial`;
+  lines = wrapTextLines(ctx, text, maxWidth);
+  if (lines.length > maxLines) {
+    lines = lines.slice(0, maxLines);
+    lines[maxLines - 1] = clampTextToWidth(ctx, lines[maxLines - 1], maxWidth);
+  }
+  const lineHeight = Math.round(fontSize * lineHeightFactor);
+  ctx.fillStyle = color;
+  lines.forEach((line, idx) => ctx.fillText(line, x, y + (idx * lineHeight)));
+  return y + ((lines.length - 1) * lineHeight);
+}
+function wrapText(ctx, text, x, y, maxWidth, lineHeight) { const lines = wrapTextLines(ctx, text, maxWidth); lines.forEach((line, idx) => ctx.fillText(line, x, y + (idx * lineHeight))); }
 function sourceLabel(source) { return t(`source.${source}`); }
 function persistHistory(){ localStorage.setItem(STORE.history, JSON.stringify(historyLog)); }
 function persistSettings(){ localStorage.setItem(STORE.settings, JSON.stringify(settings)); hydrateSettingsUI(); }

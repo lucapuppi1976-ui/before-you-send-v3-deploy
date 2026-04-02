@@ -1,8 +1,5 @@
-Correzioni incluse
-- copy pubblico coerente (niente demo/prototipo privato/server locale)
-- locali IT/EN/ES aggiornate
-- app.py finale con output multilingua corretto
-- render.yaml in root
-- .gitignore incluso
-- assets completi inclusi
-- service worker con cache name aggiornata
+Public deploy corrective patch v2
+- share card export layout fixed (dynamic title/subtitle wrapping, no overlap)
+- decode reply labels forced to canonical localized labels
+- decode flags map extended for pending_response / urgency / professionalism
+- service worker cache bumped to bys-v3-public-complete-v2

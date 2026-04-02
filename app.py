@@ -223,12 +223,12 @@ LANG_COPY = {
         'meaning_reassure_defer': 'Il tono è gentile, ma rimanda senza chiarire bene quando.',
         'verdict_defer': 'Rimanda senza chiarire.',
         'meaning_defer': 'Il tono non è duro, ma sposta la questione più avanti senza dare un piano chiaro.',
-        'flags_map': {'ambiguity':'Ambiguità','ambiguous':'Ambiguità','unclear':'Poco chiaro','low effort':'Basso investimento','low_effort':'Basso investimento','weak close':'Chiusura debole','weak_close':'Chiusura debole','mixed signals':'Segnali misti','mixed_signals':'Segnali misti','future ambiguity':'Ambiguità sul futuro','future_ambiguity':'Ambiguità sul futuro','delay':'Rimanda','postponing':'Rimanda','postpone':'Rimanda','reassuring tone':'Tono rassicurante','reassuring':'Tono rassicurante','friendly tone':'Tono amichevole','friendly':'Tono amichevole','low urgency':'Bassa urgenza','not urgent':'Bassa urgenza','positive':'Tono positivo','informal':'Tono informale'},
+        'flags_map': {'ambiguity':'Ambiguità','ambiguous':'Ambiguità','unclear':'Poco chiaro','low effort':'Basso investimento','low_effort':'Basso investimento','weak close':'Chiusura debole','weak_close':'Chiusura debole','mixed signals':'Segnali misti','mixed_signals':'Segnali misti','future ambiguity':'Ambiguità sul futuro','future_ambiguity':'Ambiguità sul futuro','delay':'Rimanda','postponing':'Rimanda','postpone':'Rimanda','reassuring tone':'Tono rassicurante','reassuring':'Tono rassicurante','friendly tone':'Tono amichevole','friendly':'Tono amichevole','low urgency':'Bassa urgenza','not urgent':'Bassa urgenza','positive':'Tono positivo','informal':'Tono informale','pending_response':'In attesa di risposta','pending response':'In attesa di risposta','urgency':'Urgenza','professionalism':'Professionalità'},
         'generic_flags': {'Tono positivo','Tono informale'},
         'desired_flags_reassure': ['Rimanda','Tono rassicurante','Bassa urgenza'],
         'desired_flags_defer': ['Rimanda','Ambiguità sul futuro','Bassa urgenza'],
         'guardrail_fallback': ['Non trattarlo come una promessa chiara.','Non leggere il rinvio come rifiuto definitivo.'],
-        'style_map': {'soft':'Più morbida','confident':'Più chiara','detached':'Più distaccata','clear':'Più chiara','warm':'Più calda','firm':'Più ferma','short':'Più breve','neutral':'Neutra','friendly':'Amichevole','casual':'Informale','supportive':'Di supporto','natural':'Naturale'},
+        'style_map': {'soft':'Più morbida','confident':'Più chiara','detached':'Più distaccata','clear':'Più chiara','warm':'Più calda','firm':'Più ferma','short':'Più breve','formal':'Neutra','concerned':'Amichevole','neutral':'Neutra','friendly':'Amichevole','casual':'Informale','supportive':'Di supporto','natural':'Naturale'},
         'reply_style_defaults': ['Neutra','Amichevole','Informale'],
         'reply_fallbacks': [('Più morbida','Va bene, quando hai un attimo scrivimi tu e vediamo.'),('Più chiara','Ok, quando hai più chiarezza scrivimi e vediamo.'),('Più distaccata','Capito, sentiamoci più avanti quando è più chiaro.')],
         'label_very_strong': 'Molto forte','label_good_base':'Buona base','label_review':'Da rivedere','label_rewrite':'Da riscrivere',
@@ -248,12 +248,12 @@ LANG_COPY = {
         'meaning_reassure_defer': 'The tone is gentle, but it postpones things without making the timing clear.',
         'verdict_defer': 'Postpones without clarity.',
         'meaning_defer': 'The tone is not harsh, but it pushes the issue later without a clear plan.',
-        'flags_map': {'ambiguity':'Ambiguity','ambiguous':'Ambiguity','unclear':'Unclear','low effort':'Low effort','low_effort':'Low effort','weak close':'Weak close','weak_close':'Weak close','mixed signals':'Mixed signals','mixed_signals':'Mixed signals','future ambiguity':'Future ambiguity','future_ambiguity':'Future ambiguity','delay':'Postpones','postponing':'Postpones','postpone':'Postpones','reassuring tone':'Reassuring tone','reassuring':'Reassuring tone','friendly tone':'Friendly tone','friendly':'Friendly tone','low urgency':'Low urgency','not urgent':'Low urgency','positive':'Positive tone','informal':'Informal tone'},
+        'flags_map': {'ambiguity':'Ambiguity','ambiguous':'Ambiguity','unclear':'Unclear','low effort':'Low effort','low_effort':'Low effort','weak close':'Weak close','weak_close':'Weak close','mixed signals':'Mixed signals','mixed_signals':'Mixed signals','future ambiguity':'Future ambiguity','future_ambiguity':'Future ambiguity','delay':'Postpones','postponing':'Postpones','postpone':'Postpones','reassuring tone':'Reassuring tone','reassuring':'Reassuring tone','friendly tone':'Friendly tone','friendly':'Friendly tone','low urgency':'Low urgency','not urgent':'Low urgency','positive':'Positive tone','informal':'Informal tone','pending_response':'Pending response','pending response':'Pending response','urgency':'Urgency','professionalism':'Professionalism'},
         'generic_flags': {'Positive tone','Informal tone'},
         'desired_flags_reassure': ['Postpones','Reassuring tone','Low urgency'],
         'desired_flags_defer': ['Postpones','Future ambiguity','Low urgency'],
         'guardrail_fallback': ['Do not read this as a clear promise.','Do not read the postponement as a final rejection.'],
-        'style_map': {'soft':'Softer','confident':'Clearer','detached':'More detached','clear':'Clearer','warm':'Warmer','firm':'Firmer','short':'Shorter','neutral':'Neutral','friendly':'Friendly','casual':'Casual','supportive':'Supportive','natural':'Natural'},
+        'style_map': {'soft':'Softer','confident':'Clearer','detached':'More detached','clear':'Clearer','warm':'Warmer','firm':'Firmer','short':'Shorter','formal':'Neutral','concerned':'Friendly','neutral':'Neutral','friendly':'Friendly','casual':'Casual','supportive':'Supportive','natural':'Natural'},
         'reply_style_defaults': ['Neutral','Friendly','Casual'],
         'reply_fallbacks': [('Softer','That works — message me when you have a clearer time.'),('Clearer','Okay, write me when you know better and we can sort it out.'),('More detached','Got it, let’s talk later when it is clearer.')],
         'label_very_strong': 'Very strong','label_good_base':'Good base','label_review':'Needs work','label_rewrite':'Rewrite it',
@@ -273,12 +273,12 @@ LANG_COPY = {
         'meaning_reassure_defer': 'El tono es amable, pero lo deja para más tarde sin dejar claro cuándo.',
         'verdict_defer': 'Aplaza sin aclarar.',
         'meaning_defer': 'El tono no es duro, pero empuja el tema hacia más adelante sin un plan claro.',
-        'flags_map': {'ambiguity':'Ambigüedad','ambiguous':'Ambigüedad','unclear':'Poco claro','low effort':'Poco esfuerzo','low_effort':'Poco esfuerzo','weak close':'Cierre débil','weak_close':'Cierre débil','mixed signals':'Señales mixtas','mixed_signals':'Señales mixtas','future ambiguity':'Ambigüedad futura','future_ambiguity':'Ambigüedad futura','delay':'Aplaza','postponing':'Aplaza','postpone':'Aplaza','reassuring tone':'Tono tranquilizador','reassuring':'Tono tranquilizador','friendly tone':'Tono amable','friendly':'Tono amable','low urgency':'Baja urgencia','not urgent':'Baja urgencia','positive':'Tono positivo','informal':'Tono informal'},
+        'flags_map': {'ambiguity':'Ambigüedad','ambiguous':'Ambigüedad','unclear':'Poco claro','low effort':'Poco esfuerzo','low_effort':'Poco esfuerzo','weak close':'Cierre débil','weak_close':'Cierre débil','mixed signals':'Señales mixtas','mixed_signals':'Señales mixtas','future ambiguity':'Ambigüedad futura','future_ambiguity':'Ambigüedad futura','delay':'Aplaza','postponing':'Aplaza','postpone':'Aplaza','reassuring tone':'Tono tranquilizador','reassuring':'Tono tranquilizador','friendly tone':'Tono amable','friendly':'Tono amable','low urgency':'Baja urgencia','not urgent':'Baja urgencia','positive':'Tono positivo','informal':'Tono informal','pending_response':'Respuesta pendiente','pending response':'Respuesta pendiente','urgency':'Urgencia','professionalism':'Profesionalidad'},
         'generic_flags': {'Tono positivo','Tono informal'},
         'desired_flags_reassure': ['Aplaza','Tono tranquilizador','Baja urgencia'],
         'desired_flags_defer': ['Aplaza','Ambigüedad futura','Baja urgencia'],
         'guardrail_fallback': ['No lo tomes como una promesa clara.','No leas el aplazamiento como un rechazo definitivo.'],
-        'style_map': {'soft':'Más suave','confident':'Más clara','detached':'Más distante','clear':'Más clara','warm':'Más cálida','firm':'Más firme','short':'Más breve','neutral':'Neutra','friendly':'Amable','casual':'Informal','supportive':'De apoyo','natural':'Natural'},
+        'style_map': {'soft':'Más suave','confident':'Más clara','detached':'Más distante','clear':'Más clara','warm':'Más cálida','firm':'Más firme','short':'Más breve','formal':'Neutra','concerned':'Amable','neutral':'Neutra','friendly':'Amable','casual':'Informal','supportive':'De apoyo','natural':'Natural'},
         'reply_style_defaults': ['Neutra','Amable','Informal'],
         'reply_fallbacks': [('Más suave','Vale, escríbeme cuando tengas algo más claro y lo vemos.'),('Más clara','Perfecto, escríbeme cuando lo tengas más claro y lo resolvemos.'),('Más distante','Entendido, lo vemos más adelante cuando esté más claro.')],
         'label_very_strong': 'Muy fuerte','label_good_base':'Buena base','label_review':'Hay que revisar','label_rewrite':'Hay que reescribir',
@@ -389,13 +389,13 @@ def normalize_decode_result(result: Dict[str, Any], source_text: str, lang: str)
         style, txt = copy(lang, 'reply_fallbacks')[len(cleaned_replies)]
         cleaned_replies.append({'style': style, 'text': txt})
 
-    # If the model returns the same generic style label for all replies,
-    # diversify the visible labels using localized defaults.
+    # Keep reply labels deterministic and localized across languages.
+    # The model can output labels like formal/concerned that are valid semantically
+    # but inconsistent with the product UI. We always relabel the three visible
+    # suggestions with the canonical localized set by position.
     default_styles = copy(lang, 'reply_style_defaults')
-    unique_styles = {r['style'].strip().lower() for r in cleaned_replies if r.get('style')}
-    if len(unique_styles) <= 1:
-        for idx, reply in enumerate(cleaned_replies[:3]):
-            reply['style'] = default_styles[idx]
+    for idx, reply in enumerate(cleaned_replies[:3]):
+        reply['style'] = default_styles[idx]
 
     result['verdict'] = verdict
     result['meaning'] = meaning
