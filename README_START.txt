@@ -1,25 +1,18 @@
-BYS V3 Deploy Public Copy Patch
+BYS V3 Deploy Public — Complete Pack
 
-Cosa sostituisce
-- locales/it.json
-- locales/en.json
-- locales/es.json
-- manifest.webmanifest
-- app.py
+Questo pacchetto è completo e pronto da caricare su GitHub e poi deployare su Render.
 
-Cosa aggiunge
-- .gitignore
+Cosa contiene:
+- Frontend multilingua IT / EN / ES
+- Backend FastAPI con AI multilingua
+- Asset demo completi (icone, screenshot, vocale)
+- render.yaml pronto per Render Blueprint
+- .gitignore per evitare __pycache__ e .env
 
-Perché esiste
-Questa patch rimuove i residui da demo interna/prototipo privato nella versione pubblica:
-- "DEMO INTERATTIVA" / "PROTOTIPO PRIVATO"
-- riferimenti al server locale sul computer dell'utente
-- manifesto PWA con descrizione da prototype
-- titolo FastAPI ancora da prototype
-
-Istruzioni rapide
-1. Nel repo GitHub, sostituisci i file sopra con questi.
-2. Aggiungi anche .gitignore alla root del repo.
-3. Fai commit con un messaggio tipo: "Public copy patch for deploy".
-4. Su Render, usa Manual sync oppure aspetta il sync automatico del Blueprint.
-5. Quando il deploy è completato, verifica home + onboarding in IT/EN/ES.
+Come usarlo:
+1. Crea un repo GitHub nuovo.
+2. Carica TUTTI i file di questa cartella nella root del repo.
+3. Non caricare .env con la chiave.
+4. Su Render usa Blueprint oppure Web Service.
+5. Aggiungi OPENAI_API_KEY come Environment Variable.
+6. Deploy.
