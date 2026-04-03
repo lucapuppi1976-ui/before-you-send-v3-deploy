@@ -491,3 +491,6 @@ hr.sep {
 .visually-hidden{position:absolute;left:-9999px;}
 .result-kicker{display:block;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--primary-2);margin-bottom:6px;}
 .result-block{display:grid;gap:6px;}
+
+
+#decodeResult, #sendResult { scroll-margin-top: 12px; }

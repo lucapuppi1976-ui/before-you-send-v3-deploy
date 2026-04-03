@@ -1,0 +1,10 @@
+BYS V3 Public scroll-fix patch
+
+Fix applied:
+- prevents jump-to-top on history open / quick demo flows
+- auto-scrolls to decode/send result sections after loading, result, or error
+- keeps normal top scroll for screen navigation
+- bumps service worker cache to bys-v3-public-complete-v3
+
+Suggested commit message:
+Fix result scroll behavior

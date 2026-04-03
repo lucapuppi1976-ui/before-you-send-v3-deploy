@@ -133,7 +133,7 @@ function bindHome() {
   $('#runQuickDemo')?.addEventListener('click', async () => {
     $('#decodeTextInput').value = samples.decodeText;
     setDecodeMode('text');
-    openScreen('screen-decode');
+    openScreen('screen-decode', { scrollTop: false });
     await runDecodeText(samples.decodeText);
   });
 }
@@ -262,13 +262,28 @@ function finishOnboarding() {
   openScreen('screen-home');
 }
 
-function openScreen(id) {
+function openScreen(id, options = {}) {
+  const { scrollTop = true, behavior = 'auto' } = options;
   $$('.screen').forEach((screen) => screen.classList.remove('active'));
   $('#' + id)?.classList.add('active');
   $$('.nav-btn').forEach((btn) => btn.classList.toggle('active', btn.dataset.open === id));
   const showNav = ['screen-home', 'screen-history', 'screen-settings'].includes(id);
   $('.bottom-nav')?.classList.toggle('hidden', !showNav);
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (scrollTop) {
+    window.scrollTo({ top: 0, behavior });
+  }
+}
+
+function scrollSectionIntoView(target) {
+  const el = typeof target === 'string' ? $(target) : target;
+  if (!el) return;
+  const parentScreen = el.closest('.screen');
+  if (parentScreen && !parentScreen.classList.contains('active')) return;
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
 }
 
 function setDecodeMode(mode) {
@@ -356,21 +371,25 @@ function showLoadingDecode(message) {
   const target = $('#decodeResult');
   target.classList.remove('hidden');
   target.innerHTML = `<section class="card loading-card"><div class="spinner"></div><p>${escapeHTML(message)}</p></section>`;
+  scrollSectionIntoView(target);
 }
 function showLoadingSend(message) {
   const target = $('#sendResult');
   target.classList.remove('hidden');
   target.innerHTML = `<section class="card loading-card"><div class="spinner"></div><p>${escapeHTML(message)}</p></section>`;
+  scrollSectionIntoView(target);
 }
 function showDecodeError(message) {
   const target = $('#decodeResult');
   target.classList.remove('hidden');
   target.innerHTML = `<section class="card error-card"><strong>${escapeHTML(t('error.decode'))}</strong><p>${escapeHTML(message)}</p></section>`;
+  scrollSectionIntoView(target);
 }
 function showSendError(message) {
   const target = $('#sendResult');
   target.classList.remove('hidden');
   target.innerHTML = `<section class="card error-card"><strong>${escapeHTML(t('error.send'))}</strong><p>${escapeHTML(message)}</p></section>`;
+  scrollSectionIntoView(target);
 }
 
 function renderDecodeResult(result, source, text) {
@@ -409,6 +428,7 @@ function renderDecodeResult(result, source, text) {
     lastSharePayload = { title: result.verdict, subtitle: result.meaning, badge: sourceLabel(source), chips: result.flags.slice(0,3), footer: settings.blurNames ? t('misc.names_yes') : t('misc.names_no'), type: 'decode' };
     downloadShareCard('bys_decode_share.png');
   });
+  scrollSectionIntoView(target);
 }
 
 function renderSendResult(result, text) {
@@ -447,6 +467,7 @@ function renderSendResult(result, text) {
     lastSharePayload = { title: t('share.score', { score: result.score }), subtitle: result.issue, badge: result.label, chips: topSendChips(result), footer: settings.blurNames ? t('misc.names_yes') : t('misc.names_no'), type: 'send' };
     downloadShareCard('bys_sendscore_share.png');
   });
+  scrollSectionIntoView(target);
 }
 
 const LABEL_KEYS = {
@@ -465,7 +486,7 @@ function renderHistory() {
   $$('[data-history-open]', target).forEach((btn) => btn.addEventListener('click', () => openFromHistory(Number(btn.dataset.historyOpen))));
   $$('[data-history-share]', target).forEach((btn) => btn.addEventListener('click', () => shareFromHistory(Number(btn.dataset.historyShare))));
 }
-function openFromHistory(index) { const item = historyLog[index]; if (!item) return; if (item.type === 'decode') { setDecodeMode(item.payload.source || 'text'); renderDecodeResult(item.payload, item.payload.source || 'text', item.payload.input || ''); openScreen('screen-decode'); } else { renderSendResult(item.payload, item.payload.input || ''); openScreen('screen-send'); } }
+function openFromHistory(index) { const item = historyLog[index]; if (!item) return; if (item.type === 'decode') { setDecodeMode(item.payload.source || 'text'); openScreen('screen-decode', { scrollTop: false }); renderDecodeResult(item.payload, item.payload.source || 'text', item.payload.input || ''); } else { openScreen('screen-send', { scrollTop: false }); renderSendResult(item.payload, item.payload.input || ''); } }
 function shareFromHistory(index) {
   const item = historyLog[index]; if (!item) return;
   if (item.type === 'decode') { lastSharePayload = { title:item.payload.verdict, subtitle:item.payload.meaning, badge:sourceLabel(item.payload.source || 'text'), chips:item.payload.flags.slice(0,3), footer: settings.blurNames ? t('misc.names_yes') : t('misc.names_no'), type:'decode' }; downloadShareCard('bys_decode_share.png'); }
