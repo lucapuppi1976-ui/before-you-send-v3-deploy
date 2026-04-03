@@ -8,7 +8,7 @@ services:
     healthCheckPath: /api/health
     autoDeploy: true
     envVars:
-      - key: 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
+      - key: OPENAI_API_KEY
         sync: false
       - key: BYS_PUBLIC_DEPLOY
         value: "true"
