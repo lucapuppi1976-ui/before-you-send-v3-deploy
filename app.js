@@ -116,7 +116,7 @@ function setLanguage(lang) {
 }
 
 function bindNavigation() {
-  $$('[data-open]').forEach((btn) => btn.addEventListener('click', () => openScreen(btn.dataset.open)));
+  $$('[data-open]:not(.nav-btn)').forEach((btn) => btn.addEventListener('click', () => openScreen(btn.dataset.open)));
   $$('[data-back]').forEach((btn) => btn.addEventListener('click', () => openScreen(btn.dataset.back)));
   $$('.nav-btn').forEach((btn) => btn.addEventListener('click', () => openScreen(btn.dataset.open)));
   $('#resetAllBtn')?.addEventListener('click', hardReset);
@@ -133,7 +133,7 @@ function bindHome() {
   $('#runQuickDemo')?.addEventListener('click', async () => {
     $('#decodeTextInput').value = samples.decodeText;
     setDecodeMode('text');
-    openScreen('screen-decode', { scrollTop: false });
+    openScreen('screen-decode', { scrollTop: false, restoreScroll: false });
     await runDecodeText(samples.decodeText);
   });
 }
@@ -262,16 +262,42 @@ function finishOnboarding() {
   openScreen('screen-home');
 }
 
+function saveActiveScreenScroll() {
+  const active = $('.screen.active');
+  if (!active?.id) return;
+  active.dataset.savedScroll = String(Math.max(0, Math.round(window.scrollY || 0)));
+}
+
+function getSavedScreenScroll(id) {
+  const screen = $('#' + id);
+  if (!screen) return null;
+  const value = Number(screen.dataset.savedScroll);
+  return Number.isFinite(value) ? value : null;
+}
+
 function openScreen(id, options = {}) {
-  const { scrollTop = true, behavior = 'auto' } = options;
+  const { scrollTop = true, behavior = 'auto', restoreScroll = true, scrollTarget = null } = options;
+  saveActiveScreenScroll();
   $$('.screen').forEach((screen) => screen.classList.remove('active'));
-  $('#' + id)?.classList.add('active');
+  const nextScreen = $('#' + id);
+  nextScreen?.classList.add('active');
   $$('.nav-btn').forEach((btn) => btn.classList.toggle('active', btn.dataset.open === id));
   const showNav = ['screen-home', 'screen-history', 'screen-settings'].includes(id);
   $('.bottom-nav')?.classList.toggle('hidden', !showNav);
-  if (scrollTop) {
-    window.scrollTo({ top: 0, behavior });
-  }
+  requestAnimationFrame(() => {
+    if (scrollTarget) {
+      scrollSectionIntoView(scrollTarget);
+      return;
+    }
+    const savedScroll = restoreScroll ? getSavedScreenScroll(id) : null;
+    if (savedScroll !== null) {
+      window.scrollTo({ top: savedScroll, behavior });
+      return;
+    }
+    if (scrollTop) {
+      window.scrollTo({ top: 0, behavior });
+    }
+  });
 }
 
 function scrollSectionIntoView(target) {
@@ -486,7 +512,7 @@ function renderHistory() {
   $$('[data-history-open]', target).forEach((btn) => btn.addEventListener('click', () => openFromHistory(Number(btn.dataset.historyOpen))));
   $$('[data-history-share]', target).forEach((btn) => btn.addEventListener('click', () => shareFromHistory(Number(btn.dataset.historyShare))));
 }
-function openFromHistory(index) { const item = historyLog[index]; if (!item) return; if (item.type === 'decode') { setDecodeMode(item.payload.source || 'text'); openScreen('screen-decode', { scrollTop: false }); renderDecodeResult(item.payload, item.payload.source || 'text', item.payload.input || ''); } else { openScreen('screen-send', { scrollTop: false }); renderSendResult(item.payload, item.payload.input || ''); } }
+function openFromHistory(index) { const item = historyLog[index]; if (!item) return; if (item.type === 'decode') { setDecodeMode(item.payload.source || 'text'); openScreen('screen-decode', { scrollTop: false, restoreScroll: false }); renderDecodeResult(item.payload, item.payload.source || 'text', item.payload.input || ''); } else { openScreen('screen-send', { scrollTop: false, restoreScroll: false }); renderSendResult(item.payload, item.payload.input || ''); } }
 function shareFromHistory(index) {
   const item = historyLog[index]; if (!item) return;
   if (item.type === 'decode') { lastSharePayload = { title:item.payload.verdict, subtitle:item.payload.meaning, badge:sourceLabel(item.payload.source || 'text'), chips:item.payload.flags.slice(0,3), footer: settings.blurNames ? t('misc.names_yes') : t('misc.names_no'), type:'decode' }; downloadShareCard('bys_decode_share.png'); }

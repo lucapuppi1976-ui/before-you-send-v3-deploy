@@ -1,0 +1,10 @@
+BYS V3 PUBLIC SCROLL FIX V4
+
+What this hotfix fixes:
+- preserves per-screen scroll position when moving between Home / Decode / Send / History / Settings
+- avoids duplicate click binding on bottom nav buttons
+- keeps Quick Demo and History->Open forcing fresh result scroll instead of restoring old scroll
+- bumps service worker cache key to v4
+
+Recommended commit message:
+Preserve screen scroll state and fix nav jump
