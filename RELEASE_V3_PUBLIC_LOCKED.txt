@@ -1,0 +1,26 @@
+Before You Send — V3 Public Locked
+
+Status:
+- V1 italiana: LOCKED
+- V2 multilingua: LOCKED
+- V3 deploy pubblico: LOCKED
+
+Repo:
+- before-you-send-v3-deploy
+
+Render service:
+- bys-v3-public
+
+Public URL:
+- https://bys-v3-public.onrender.com/
+
+Operational notes:
+- Public deploy serving new copy
+- Splash visibility fix applied
+- Service worker cache key updated to v5
+
+Non-blocking backlog:
+- ES demo microcopy cleanup
+- Capture defer heuristic hardening
+
+This file is an archival release marker for the locked public V3 state.
