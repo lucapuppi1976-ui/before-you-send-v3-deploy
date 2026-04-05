@@ -1,164 +1,296 @@
 <!doctype html>
-<html lang="en">
+<html lang="it">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>BB1 Studio — Focused AI products for clearer communication</title>
-  <meta name="description" content="BB1 Studio builds focused digital products that make communication clearer and decisions easier." />
-  <meta name="theme-color" content="#08111f" />
-  <meta property="og:title" content="BB1 Studio" />
-  <meta property="og:description" content="Focused digital products that make communication clearer and decisions easier." />
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://bb1studio.com/" />
-  <link rel="canonical" href="https://bb1studio.com/" />
-  <link rel="stylesheet" href="styles.css" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Before You Send</title>
+  <meta name="theme-color" content="#0b1220">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="assets/icon-192.png">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <header class="site-header">
-    <div class="wrap nav">
-      <a class="brand" href="#top" aria-label="BB1 Studio home">BB1 Studio</a>
-      <nav class="site-nav" aria-label="Primary">
-        <a href="#products">Products</a>
-        <a href="#principles">Principles</a>
-        <a href="#about">About</a>
-      </nav>
-      <a class="btn btn-small" href="/bys">Open BYS</a>
+<div id="app">
+  <section id="screen-splash" class="screen splash active">
+    <div class="logo">BYS</div>
+    <div class="center">
+      <p class="eyebrow" data-i18n="splash.eyebrow">ACCESSO ANTICIPATO</p>
+      <h1 data-i18n="app.name">Before You Send</h1>
+      <p data-i18n="app.tagline">Capisci cosa voleva dire davvero. Controlla come suona il tuo messaggio prima di inviarlo.</p>
     </div>
-  </header>
+  </section>
 
-  <main id="top">
-    <section class="hero wrap">
-      <div class="hero-copy">
-        <p class="eyebrow">Premium product studio</p>
-        <h1>Small, focused AI products that make communication feel clearer.</h1>
-        <p class="lead">
-          BB1 Studio is the brand container for a growing set of calm, useful digital tools.
-          Each product is designed to reduce ambiguity, lower friction, and help people move with more confidence.
-        </p>
-        <div class="hero-actions">
-          <a class="btn" href="/bys">Open Before You Send</a>
-          <a class="btn btn-secondary" href="#products">Explore products</a>
-        </div>
+  <section id="screen-onboarding-1" class="screen onboarding-slide">
+    <div class="topbar">
+      <div class="brand">
+        <p class="eyebrow" data-i18n="onb.step" data-i18n-vars='{"n":"1"}'>PASSO 1 / 3</p>
+        <h1 data-i18n="onb1.title">Capisci cosa hai ricevuto</h1>
       </div>
+      <button class="ghost" data-skip-onboarding data-i18n="onb.skip">Salta</button>
+    </div>
+    <div class="progress"><div class="dot on"></div><div class="dot"></div><div class="dot"></div></div>
+    <div class="phone-preview">
+      <div class="bubble in">No tranquilla, vediamo più avanti :)</div>
+      <div class="bubble ai" data-i18n="onb1.preview.ai">Non sembra confuso. Sembra tiepido.</div>
+    </div>
+    <h2 data-i18n="onb1.h2">Testo, vocale o screenshot.</h2>
+    <p data-i18n="onb1.p">Carichi quello che hai ricevuto e ottieni una lettura veloce, i segnali chiave e tre risposte che puoi usare.</p>
+    <div class="bottom-actions">
+      <button class="ghost" data-skip-onboarding data-i18n="onb.later">Più tardi</button>
+      <button class="primary" data-next-onboarding="2" data-i18n="onb.continue">Continua</button>
+    </div>
+  </section>
 
-      <aside class="hero-panel" aria-label="Featured product">
-        <div class="hero-panel-top">
-          <span class="pill">Live now</span>
-          <p class="panel-label">Featured product</p>
-        </div>
-        <h2>Before You Send</h2>
-        <p>
-          A communication assistant that helps people understand what a message really means,
-          and check how their own message will sound before sending it.
-        </p>
-        <ul class="panel-list">
-          <li>Decode text, screenshots, and voice notes</li>
-          <li>Check tone before sending</li>
-          <li>Built for fast mobile use</li>
-        </ul>
-        <a class="text-link" href="/bys">Go to BYS</a>
-      </aside>
-    </section>
-
-    <section id="products" class="section wrap">
-      <div class="section-head">
-        <p class="eyebrow">Products</p>
-        <h2>One live product, more carefully selected tools ahead.</h2>
+  <section id="screen-onboarding-2" class="screen onboarding-slide">
+    <div class="topbar">
+      <div class="brand">
+        <p class="eyebrow" data-i18n="onb.step" data-i18n-vars='{"n":"2"}'>PASSO 2 / 3</p>
+        <h1 data-i18n="onb2.title">Controlla come suona</h1>
       </div>
+      <button class="ghost" data-skip-onboarding data-i18n="onb.skip">Salta</button>
+    </div>
+    <div class="progress"><div class="dot on"></div><div class="dot on"></div><div class="dot"></div></div>
+    <div class="phone-preview">
+      <div class="bubble in">Ok allora fammi sapere tu perché non capisco mai cosa vuoi</div>
+      <div class="bubble ai" data-i18n="onb2.preview.ai">42/100 — suona più frustrato che lucido</div>
+    </div>
+    <h2 data-i18n="onb2.h2">Controlli il tono prima di inviare.</h2>
+    <p data-i18n="onb2.p">Vedi punteggio, punto critico e quattro versioni migliori del messaggio: più chiara, più calda, più ferma o più breve.</p>
+    <div class="bottom-actions">
+      <button class="ghost" data-prev-onboarding="1" data-i18n="onb.back">Indietro</button>
+      <button class="primary" data-next-onboarding="3" data-i18n="onb.continue">Continua</button>
+    </div>
+  </section>
 
-      <div class="grid grid-3">
-        <article class="card card-featured">
-          <span class="pill">Live</span>
-          <h3>Before You Send</h3>
-          <p>
-            A premium communication tool for decoding incoming messages and previewing tone before you send your own.
-          </p>
-          <div class="meta-row">
-            <span>Decode</span>
-            <span>SendScore</span>
-            <span>Mobile-first</span>
-          </div>
-          <div class="card-actions">
-            <a class="btn" href="/bys">Open app</a>
-          </div>
-        </article>
-
-        <article class="card">
-          <span class="pill pill-muted">Next</span>
-          <h3>Product 02</h3>
-          <p>
-            Reserved for the next BB1 Studio release. The structure is intentionally simple so the studio can grow product by product.
-          </p>
-        </article>
-
-        <article class="card">
-          <span class="pill pill-muted">Later</span>
-          <h3>Product 03</h3>
-          <p>
-            A future slot for another focused tool. BB1 Studio is designed as a lasting container, not a single-app landing page.
-          </p>
-        </article>
+  <section id="screen-onboarding-3" class="screen onboarding-slide">
+    <div class="topbar">
+      <div class="brand">
+        <p class="eyebrow" data-i18n="onb.step" data-i18n-vars='{"n":"3"}'>PASSO 3 / 3</p>
+        <h1 data-i18n="onb3.title">Provata sul telefono</h1>
       </div>
-    </section>
+      <button class="ghost" data-skip-onboarding data-i18n="onb.skip">Salta</button>
+    </div>
+    <div class="progress"><div class="dot on"></div><div class="dot on"></div><div class="dot on"></div></div>
+    <div class="card notice" data-i18n="onb3.notice">Questa versione usa AI vera. L’elaborazione avviene in modo sicuro lato server.</div>
+    <h2 data-i18n="onb3.h2">Aprila sul telefono come una vera app.</h2>
+    <p data-i18n="onb3.p">Aggiungila alla Home per tenerla sempre a portata di mano.</p>
+    <div class="bottom-actions">
+      <button class="ghost" data-prev-onboarding="2" data-i18n="onb.back">Indietro</button>
+      <button class="primary" id="finishOnboarding" data-i18n="onb.enter">Entra</button>
+    </div>
+  </section>
 
-    <section id="principles" class="section wrap">
-      <div class="section-head">
-        <p class="eyebrow">Principles</p>
-        <h2>What guides the studio.</h2>
+  <section id="screen-home" class="screen">
+    <div class="topbar">
+      <div class="brand">
+        <p class="eyebrow" data-i18n="home.eyebrow">ACCESSO ANTICIPATO</p>
+        <h1 data-i18n="app.name">Before You Send</h1>
       </div>
+      <button class="ghost small" id="resetAllBtn" data-i18n="home.reset">Reset</button>
+    </div>
 
-      <div class="grid grid-3">
-        <article class="card">
-          <h3>Focused scope</h3>
-          <p>We prefer narrow products that solve one meaningful problem well instead of broad platforms that do everything halfway.</p>
-        </article>
-
-        <article class="card">
-          <h3>Calm UX</h3>
-          <p>Clear hierarchy, restrained copy, and short decision paths. The interface should reduce cognitive load, not add to it.</p>
-        </article>
-
-        <article class="card">
-          <h3>Useful AI</h3>
-          <p>AI stays in the background. The real product is clarity, confidence, and time saved in real communication moments.</p>
-        </article>
-      </div>
-    </section>
-
-    <section id="about" class="section wrap section-about">
-      <div class="section-head">
-        <p class="eyebrow">About</p>
-        <h2>BB1 Studio is built to scale cleanly.</h2>
-      </div>
-      <div class="about-layout">
-        <p class="lead compact">
-          The root domain introduces the studio. Each product can live on its own subdomain for cleaner deployment,
-          faster iteration, and simpler operations. BYS is the first live product in that structure.
-        </p>
-        <p class="lead compact">
-          BB1 Studio is a brand operated by Guanabomalu SL.
-        </p>
-        <div class="about-actions">
-          <a class="btn" href="/bys">Open BYS</a>
-          <a class="btn btn-secondary" href="privacy.html">Privacy</a>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <footer class="site-footer">
-    <div class="wrap footer-grid">
+    <div id="installBanner" class="card install-banner hidden">
       <div>
-        <strong>BB1 Studio</strong>
-        <p>Focused digital products for clearer communication and better decisions.</p>
-        <p>Operated by Guanabomalu SL · CIF B38413647 · Camino las Higueras, 7 · Arona · Tenerife · Canarias · Spain.</p>
+        <strong data-i18n="home.install.title">Installala sul telefono</strong>
+        <p class="caption" data-i18n="home.install.p">Aggiungila alla Home per provarla come una vera app.</p>
       </div>
-      <div class="footer-links">
-        <a href="/bys">Before You Send</a>
-        <a href="privacy.html">Privacy</a>
-        <a href="terms.html">Terms</a>
+      <button class="primary small" id="installBtn" data-i18n="home.install.cta">Installa</button>
+    </div>
+
+    <section class="hero card stack-sm">
+      <div class="between lang-row">
+        <h2 data-i18n="home.hero.h2">Capisci cosa voleva dire davvero. Controlla come suona il tuo messaggio prima di inviarlo.</h2>
+        <div class="lang-picker compact">
+          <label for="langSelectHome" class="visually-hidden" data-i18n="lang.label">Lingua</label>
+          <select id="langSelectHome">
+            <option value="it">Italiano</option>
+            <option value="en">English</option>
+            <option value="es">Español</option>
+          </select>
+        </div>
+      </div>
+      <p data-i18n="home.hero.p">Prova messaggi, vocali e screenshot direttamente dal telefono. Risponde in pochi secondi.</p>
+      <div id="apiStatusBadge" class="badge waiting" data-health-badge>Controllo in corso…</div>
+      <div id="apiStatusDetail" class="caption muted" data-health-detail>Verifica della connessione AI…</div>
+      <div class="actions" style="margin-top:8px;">
+        <button class="ghost small" id="refreshApiHealth" data-i18n="home.health.refresh">Controlla connessione</button>
+        <button class="ghost small" id="runQuickDemo" data-i18n="home.quickdemo">Prova subito</button>
+      </div>
+    </section>
+
+    <section class="grid-2">
+      <div class="stat">
+        <div class="num" id="statAnalyses">0</div>
+        <div class="lbl" data-i18n="home.stat.analyses">Analisi salvate</div>
+      </div>
+      <div class="stat">
+        <div class="num" id="statLastMode">—</div>
+        <div class="lbl" data-i18n="home.stat.lastmode">Ultima modalità</div>
+      </div>
+    </section>
+
+    <section class="stack">
+      <button class="feature card" data-open="screen-decode">
+        <div><h3 data-i18n="home.card.decode.title">Capisci cosa voleva dire</h3><p data-i18n="home.card.decode.p">Messaggi, vocali e screenshot</p></div><span class="chev">→</span>
+      </button>
+      <button class="feature card" data-open="screen-send">
+        <div><h3 data-i18n="home.card.send.title">Controlla come suona</h3><p data-i18n="home.card.send.p">Valuta il tono del messaggio prima di inviarlo</p></div><span class="chev">→</span>
+      </button>
+    </section>
+
+    <section class="card stack-sm">
+      <strong data-i18n="home.fast.title">Il modo più veloce per provarla</strong>
+      <p class="small muted" data-i18n="home.fast.p">1. Prova un messaggio ricevuto. 2. Controlla un messaggio da inviare. 3. Scarica la share card dal telefono.</p>
+    </section>
+  </section>
+
+  <section id="screen-decode" class="screen">
+    <div class="subnav">
+      <button class="back" data-back="screen-home">←</button>
+      <div>
+        <p class="eyebrow" data-i18n="decode.eyebrow">COSA HAI RICEVUTO</p>
+        <h1 data-i18n="decode.title">Capisci cosa voleva dire</h1>
       </div>
     </div>
-  </footer>
+
+    <section class="card stack-sm">
+      <div class="tabbar">
+        <button class="tab active" data-decode-mode="text" data-i18n="decode.tab.text">Testo</button>
+        <button class="tab" data-decode-mode="voice" data-i18n="decode.tab.voice">Vocale</button>
+        <button class="tab" data-decode-mode="image" data-i18n="decode.tab.image">Screenshot</button>
+      </div>
+
+      <div id="decode-mode-text" class="stack-sm">
+        <p class="muted" data-i18n="decode.text.help">Incolla un messaggio o la trascrizione di un vocale.</p>
+        <textarea id="decodeTextInput" data-i18n-placeholder="decode.text.placeholder" placeholder="Incolla qui un messaggio o la trascrizione di un vocale" spellcheck="false" autocorrect="off" autocapitalize="sentences"></textarea>
+        <div class="actions">
+          <button class="ghost" id="decodeTextSample" data-i18n="decode.sample">Prova esempio</button>
+          <button class="primary" id="decodeTextAnalyze" data-i18n="decode.analyze">Analizza</button>
+        </div>
+      </div>
+
+      <div id="decode-mode-voice" class="stack-sm hidden">
+        <p class="muted" data-i18n="decode.voice.help">Puoi caricare un file audio oppure incollare direttamente una trascrizione.</p>
+        <div class="file-row">
+          <button class="ghost" id="useDemoVoice" data-i18n="decode.voice.sample">Prova vocale demo</button>
+          <input type="file" id="voiceUpload" accept="audio/*">
+        </div>
+        <audio id="voicePlayer" controls class="hidden"></audio>
+        <textarea id="voiceTranscript" data-i18n-placeholder="decode.voice.placeholder" placeholder="Se vuoi, incolla qui la trascrizione del vocale." spellcheck="false" autocorrect="off" autocapitalize="sentences"></textarea>
+        <div class="actions">
+          <button class="primary" id="decodeVoiceAnalyze" data-i18n="decode.voice.analyze">Analizza il vocale</button>
+        </div>
+      </div>
+
+      <div id="decode-mode-image" class="stack-sm hidden">
+        <p class="muted" data-i18n="decode.image.help">Carica uno screenshot della chat. In alternativa, incolla il testo già estratto.</p>
+        <div class="file-row">
+          <button class="ghost" id="useDemoScreenshot" data-i18n="decode.image.sample">Prova screenshot demo</button>
+          <input type="file" id="imageUpload" accept="image/*">
+        </div>
+        <img id="imagePreview" src="assets/chat_demo_final.png" alt="Preview screenshot" class="preview-img hidden">
+        <textarea id="imageExtractedText" data-i18n-placeholder="decode.image.placeholder" placeholder="Se preferisci, incolla qui il testo estratto dallo screenshot." spellcheck="false" autocorrect="off" autocapitalize="sentences"></textarea>
+        <div class="actions">
+          <button class="primary" id="decodeImageAnalyze" data-i18n="decode.image.analyze">Analizza lo screenshot</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="decodeResult" class="stack hidden"></section>
+  </section>
+
+  <section id="screen-send" class="screen">
+    <div class="subnav">
+      <button class="back" data-back="screen-home">←</button>
+      <div>
+        <p class="eyebrow" data-i18n="send.eyebrow">PRIMA DI INVIARE</p>
+        <h1 data-i18n="send.title">Controlla come suona</h1>
+      </div>
+    </div>
+
+    <section class="card stack-sm">
+      <div class="pill" data-i18n="send.context">Dopo che ha rimandato</div>
+      <textarea id="sendInput" data-i18n-placeholder="send.placeholder" placeholder="Incolla qui il messaggio che stai per inviare" spellcheck="false" autocorrect="off" autocapitalize="sentences"></textarea>
+      <div class="actions">
+        <button class="ghost" id="sendSample" data-i18n="send.sample">Prova esempio</button>
+        <button class="primary" id="sendAnalyze" data-i18n="send.analyze">Controlla il tono</button>
+      </div>
+    </section>
+
+    <section id="sendResult" class="stack hidden"></section>
+  </section>
+
+  <section id="screen-history" class="screen">
+    <div class="topbar">
+      <div class="brand">
+        <p class="eyebrow" data-i18n="history.eyebrow">CRONOLOGIA</p>
+        <h1 data-i18n="history.title">Cronologia</h1>
+      </div>
+      <button class="ghost small" id="clearHistoryBtn" data-i18n="history.clear">Pulisci</button>
+    </div>
+    <div id="historyList" class="list"></div>
+  </section>
+
+  <section id="screen-settings" class="screen">
+    <div class="topbar">
+      <div class="brand">
+        <p class="eyebrow" data-i18n="settings.eyebrow">IMPOSTAZIONI</p>
+        <h1 data-i18n="settings.title">Impostazioni</h1>
+      </div>
+    </div>
+
+    <section class="card stack-sm">
+      <div class="switch">
+        <div>
+          <strong data-i18n="settings.blur.title">Offusca i nomi</strong>
+          <p class="caption" data-i18n="settings.blur.p">La share card tiene i nomi offuscati.</p>
+        </div>
+        <button class="toggle on" id="toggleBlur" aria-label="Toggle blur"></button>
+      </div>
+      <div class="switch">
+        <div>
+          <strong data-i18n="settings.onboarding.title">Rivedi onboarding</strong>
+          <p class="caption" data-i18n="settings.onboarding.p">Riapri il flusso introduttivo.</p>
+        </div>
+        <button class="ghost" id="rerunOnboarding" data-i18n="settings.open">Apri</button>
+      </div>
+      <div class="switch">
+        <div>
+          <strong data-i18n="settings.reset.title">Reset totale</strong>
+          <p class="caption" data-i18n="settings.reset.p">Cronologia, risultati e impostazioni locali.</p>
+        </div>
+        <button class="danger" id="hardResetBtn" data-i18n="settings.reset">Reset</button>
+      </div>
+      <div class="switch">
+        <div>
+          <strong data-i18n="lang.label">Lingua</strong>
+          <p class="caption">IT / EN / ES</p>
+        </div>
+        <div class="lang-picker">
+          <select id="langSelectSettings">
+            <option value="it">Italiano</option>
+            <option value="en">English</option>
+            <option value="es">Español</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <section class="card stack-sm">
+      <strong data-i18n="settings.about.title">Come funziona</strong>
+      <p class="muted" data-i18n="settings.about.p">La usi dal telefono come una mini app. L’analisi arriva in pochi secondi.</p>
+      <p class="caption muted" data-i18n="settings.about.p2">Se qualcosa non funziona, puoi controllare lo stato della connessione dalla Home.</p>
+    </section>
+  </section>
+
+  <nav class="bottom-nav">
+    <button class="nav-btn active" data-open="screen-home" data-i18n="nav.home">Home</button>
+    <button class="nav-btn" data-open="screen-history" data-i18n="nav.history">Cronologia</button>
+    <button class="nav-btn" data-open="screen-settings" data-i18n="nav.settings">Impostazioni</button>
+  </nav>
+</div>
+
+<canvas id="shareCanvas" width="1080" height="1920" class="hidden"></canvas>
+<script src="app.js"></script>
 </body>
 </html>

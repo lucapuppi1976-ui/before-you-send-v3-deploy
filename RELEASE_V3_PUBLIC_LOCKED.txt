@@ -11,16 +11,21 @@ Repo:
 Render service:
 - bys-v3-public
 
-Public URL:
+Canonical public URL:
+- https://bys.bb1studio.com/
+
+Fallback URL:
 - https://bys-v3-public.onrender.com/
 
 Operational notes:
-- Public deploy serving new copy
-- Splash visibility fix applied
-- Service worker cache key updated to v5
+- public deploy serving new copy
+- scroll/nav fixes applied
+- splash visibility fix applied
+- service worker cache key updated to v5
+- final app.py capture/reply/localization hardening included
 
 Non-blocking backlog:
 - ES demo microcopy cleanup
-- Capture defer heuristic hardening
+- capture defer heuristic can still be hardened further if needed
 
 This file is an archival release marker for the locked public V3 state.

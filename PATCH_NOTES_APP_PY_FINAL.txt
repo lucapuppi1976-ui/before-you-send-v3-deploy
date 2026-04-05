@@ -1,0 +1,10 @@
+BYS V3 PUBLIC LOCKED — FINAL APP PATCH
+
+What this final app.py update includes:
+- reduces false defer outcomes on long screenshot/capture inputs
+- localizes residual guardrail lines more consistently
+- hardens reply generation so outputs are more likely to be actual sendable replies
+- keeps the existing v5 splash / CSS / service worker state unchanged
+
+Suggested archival commit message:
+- Update BYS master pack v6 clean

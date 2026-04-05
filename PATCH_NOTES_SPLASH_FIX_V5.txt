@@ -1,0 +1,15 @@
+BYS V3 DEPLOY PUBLIC – SPLASH FIX V5
+
+Issue fixed
+- The splash screen stayed visible even after navigation, so many clicks appeared to jump back to the first screen.
+
+Root cause
+- styles.css had .splash { display: flex !important; }
+- This overrode .screen { display: none; } for the splash screen, so splash stayed rendered even when inactive.
+
+Changes
+- styles.css: moved splash display rule to .splash.active
+- sw.js: cache key bumped to bys-v3-public-complete-v5
+
+Suggested commit
+- Fix splash screen staying visible

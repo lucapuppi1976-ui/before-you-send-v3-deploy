@@ -1,0 +1,10 @@
+DELETE THESE IF THEY ARE STILL IN before-you-send-v3-deploy
+
+These belong to the BB1 Studio root site workflow, not to the BYS app pack:
+- bys/
+- privacy.html
+- terms.html
+- robots.txt
+- sitemap.xml
+
+Also replace any old README_MASTER_WORKFLOW.txt that mentions "BB1 STUDIO SITE" with the one included in this pack.
