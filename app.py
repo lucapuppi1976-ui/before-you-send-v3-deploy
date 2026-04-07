@@ -2,17 +2,20 @@
 from __future__ import annotations
 
 import base64
+import hashlib
+import hmac
 import json
 import mimetypes
 import os
 import re
+import time
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 import requests
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -45,6 +48,19 @@ TRANSCRIBE_MODEL = os.getenv('BYS_TRANSCRIBE_MODEL', 'gpt-4o-mini-transcribe')
 TIMEOUT_SECONDS = int(os.getenv('BYS_TIMEOUT_SECONDS', '120'))
 DEBUG = os.getenv('BYS_DEBUG', 'false').lower() == 'true'
 
+BYS_ACCESS_CODE = os.getenv('BYS_ACCESS_CODE', '').strip()
+BYS_ACCESS_COOKIE_NAME = os.getenv('BYS_ACCESS_COOKIE_NAME', 'bys_access')
+BYS_ACCESS_COOKIE_DAYS = max(1, int(os.getenv('BYS_ACCESS_COOKIE_DAYS', '30')))
+BYS_ACCESS_PAGE_URL = os.getenv('BYS_ACCESS_PAGE_URL', 'https://bb1studio.com/before-you-send/access/').strip() or 'https://bb1studio.com/before-you-send/access/'
+_gate_flag = os.getenv('BYS_GATE_ENABLED', '').strip().lower()
+if _gate_flag in {'1', 'true', 'yes', 'on'}:
+    BYS_GATE_ENABLED = True
+elif _gate_flag in {'0', 'false', 'no', 'off'}:
+    BYS_GATE_ENABLED = False
+else:
+    BYS_GATE_ENABLED = bool(BYS_ACCESS_CODE)
+BYS_GATE_SECRET = (os.getenv('BYS_GATE_SECRET', '').strip() or OPENAI_API_KEY or 'bys-gate-dev-secret')
+
 SUPPORTED_LANGS = {'it', 'en', 'es'}
 
 app = FastAPI(title='Before You Send')
@@ -62,6 +78,10 @@ class TextPayload(BaseModel):
     lang: Optional[str] = 'it'
 
 
+class AccessPayload(BaseModel):
+    code: str
+
+
 class OpenAIError(RuntimeError):
     pass
 
@@ -74,6 +94,75 @@ def canonical_lang(lang: Optional[str]) -> str:
 def require_api_key() -> None:
     if not OPENAI_API_KEY:
         raise HTTPException(status_code=500, detail='OPENAI_API_KEY missing. Copy .env.example to .env and add your key.')
+
+
+def gate_enabled() -> bool:
+    return BYS_GATE_ENABLED and bool(BYS_ACCESS_CODE)
+
+
+def normalize_access_code(raw: Optional[str]) -> str:
+    return re.sub(r'\s+', '', (raw or '').strip()).upper()
+
+
+def gate_signature(payload: str) -> str:
+    material = f'{payload}|{normalize_access_code(BYS_ACCESS_CODE)}'
+    return hmac.new(BYS_GATE_SECRET.encode('utf-8'), material.encode('utf-8'), hashlib.sha256).hexdigest()
+
+
+def issue_gate_token() -> str:
+    expires_at = int(time.time()) + BYS_ACCESS_COOKIE_DAYS * 86400
+    payload = f'access:{expires_at}'
+    signed = f'{payload}:{gate_signature(payload)}'
+    return base64.urlsafe_b64encode(signed.encode('utf-8')).decode('utf-8')
+
+
+def verify_gate_token(token: str) -> bool:
+    if not token:
+        return False
+    try:
+        raw = base64.urlsafe_b64decode(token.encode('utf-8')).decode('utf-8')
+        payload, signature = raw.rsplit(':', 1)
+        if not hmac.compare_digest(signature, gate_signature(payload)):
+            return False
+        kind, expires_raw = payload.split(':', 1)
+        if kind != 'access':
+            return False
+        return int(expires_raw) >= int(time.time())
+    except Exception:
+        return False
+
+
+def request_has_gate_access(request: Request) -> bool:
+    if not gate_enabled():
+        return True
+    return verify_gate_token(request.cookies.get(BYS_ACCESS_COOKIE_NAME, ''))
+
+
+def require_gate_access(request: Request) -> None:
+    if not request_has_gate_access(request):
+        raise HTTPException(status_code=401, detail='Access locked. Enter your access code to continue.')
+
+
+def secure_cookie_for_request(request: Request) -> bool:
+    proto = (request.headers.get('x-forwarded-proto') or request.url.scheme or '').lower()
+    return proto == 'https'
+
+
+def set_gate_cookie(response: Response, request: Request) -> None:
+    max_age = BYS_ACCESS_COOKIE_DAYS * 86400
+    response.set_cookie(
+        key=BYS_ACCESS_COOKIE_NAME,
+        value=issue_gate_token(),
+        max_age=max_age,
+        httponly=True,
+        secure=secure_cookie_for_request(request),
+        samesite='lax',
+        path='/',
+    )
+
+
+def clear_gate_cookie(response: Response) -> None:
+    response.delete_cookie(key=BYS_ACCESS_COOKIE_NAME, path='/', samesite='lax')
 
 
 def auth_headers() -> Dict[str, str]:
@@ -631,11 +720,45 @@ def score_outgoing_text(text: str, lang: str) -> Dict[str, Any]:
 
 @app.get('/api/health')
 def api_health() -> Dict[str, Any]:
-    return {'ok': True, 'apiConfigured': bool(OPENAI_API_KEY), 'models': {'text': TEXT_MODEL, 'vision': VISION_MODEL, 'transcribe': TRANSCRIBE_MODEL}, 'supportedLanguages': sorted(SUPPORTED_LANGS)}
+    return {
+        'ok': True,
+        'apiConfigured': bool(OPENAI_API_KEY),
+        'gateEnabled': gate_enabled(),
+        'models': {'text': TEXT_MODEL, 'vision': VISION_MODEL, 'transcribe': TRANSCRIBE_MODEL},
+        'supportedLanguages': sorted(SUPPORTED_LANGS),
+    }
+
+
+@app.get('/api/access/status')
+def api_access_status(request: Request) -> Dict[str, Any]:
+    return {
+        'enabled': gate_enabled(),
+        'unlocked': request_has_gate_access(request),
+        'accessPage': BYS_ACCESS_PAGE_URL,
+    }
+
+
+@app.post('/api/access/unlock')
+def api_access_unlock(payload: AccessPayload, request: Request) -> JSONResponse:
+    if not gate_enabled():
+        return JSONResponse({'ok': True, 'enabled': False, 'unlocked': True, 'accessPage': BYS_ACCESS_PAGE_URL})
+    if normalize_access_code(payload.code) != normalize_access_code(BYS_ACCESS_CODE):
+        raise HTTPException(status_code=403, detail='Invalid access code.')
+    response = JSONResponse({'ok': True, 'enabled': True, 'unlocked': True, 'accessPage': BYS_ACCESS_PAGE_URL})
+    set_gate_cookie(response, request)
+    return response
+
+
+@app.post('/api/access/logout')
+def api_access_logout() -> JSONResponse:
+    response = JSONResponse({'ok': True})
+    clear_gate_cookie(response)
+    return response
 
 
 @app.post('/api/decode/text')
-def api_decode_text(payload: TextPayload) -> Dict[str, Any]:
+def api_decode_text(request: Request, payload: TextPayload) -> Dict[str, Any]:
+    require_gate_access(request)
     lang = canonical_lang(payload.lang)
     try:
         return decode_from_text(payload.text, lang)
@@ -644,7 +767,8 @@ def api_decode_text(payload: TextPayload) -> Dict[str, Any]:
 
 
 @app.post('/api/score/text')
-def api_score_text(payload: TextPayload) -> Dict[str, Any]:
+def api_score_text(request: Request, payload: TextPayload) -> Dict[str, Any]:
+    require_gate_access(request)
     lang = canonical_lang(payload.lang)
     try:
         return score_outgoing_text(payload.text, lang)
@@ -653,7 +777,8 @@ def api_score_text(payload: TextPayload) -> Dict[str, Any]:
 
 
 @app.post('/api/decode/audio')
-async def api_decode_audio(file: Optional[UploadFile] = File(default=None), transcript: Optional[str] = Form(default=None), lang: Optional[str] = Form(default='it')) -> Dict[str, Any]:
+async def api_decode_audio(request: Request, file: Optional[UploadFile] = File(default=None), transcript: Optional[str] = Form(default=None), lang: Optional[str] = Form(default='it')) -> Dict[str, Any]:
+    require_gate_access(request)
     lang = canonical_lang(lang)
     try:
         if transcript and transcript.strip():
@@ -670,7 +795,8 @@ async def api_decode_audio(file: Optional[UploadFile] = File(default=None), tran
 
 
 @app.post('/api/decode/image')
-async def api_decode_image(file: Optional[UploadFile] = File(default=None), extracted_text: Optional[str] = Form(default=None), lang: Optional[str] = Form(default='it')) -> Dict[str, Any]:
+async def api_decode_image(request: Request, file: Optional[UploadFile] = File(default=None), extracted_text: Optional[str] = Form(default=None), lang: Optional[str] = Form(default='it')) -> Dict[str, Any]:
+    require_gate_access(request)
     lang = canonical_lang(lang)
     try:
         if extracted_text and extracted_text.strip() and not file:
@@ -685,7 +811,8 @@ async def api_decode_image(file: Optional[UploadFile] = File(default=None), extr
 
 
 @app.get('/api/config')
-def api_config() -> Dict[str, Any]:
+def api_config(request: Request) -> Dict[str, Any]:
+    require_gate_access(request)
     return {'demoSamples': True, 'supports': {'text': True, 'voice': True, 'image': True, 'shareCard': True}, 'supportedLanguages': sorted(SUPPORTED_LANGS)}
 
 

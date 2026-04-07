@@ -20,6 +20,12 @@ let latestDecodeResult = null;
 let apiHealthy = false;
 let locales = {};
 let currentLang = localStorage.getItem(STORE.lang) || detectBrowserLang();
+let gateState = {
+  enabled: false,
+  unlocked: true,
+  accessPage: 'https://bb1studio.com/before-you-send/access/',
+  statusError: false,
+};
 
 const samples = {
   decodeText: 'No tranquilla, vediamo più avanti :)',
@@ -39,18 +45,159 @@ async function init() {
   bindDecode();
   bindSendScore();
   bindSettings();
+  bindGate();
   bindLanguageSelectors();
   registerInstall();
   registerSW();
   applyTranslations();
   renderHistory();
   renderStats();
-  checkApiHealth();
 
-  setTimeout(() => {
-    const done = localStorage.getItem(STORE.onboarding) === '1';
-    openScreen(done ? 'screen-home' : 'screen-onboarding-1');
-  }, 350);
+  await refreshGateStatus(false);
+  if (gateState.enabled && !gateState.unlocked) {
+    showGateScreen(gateState.statusError ? t('gate.error.status') : '');
+    return;
+  }
+
+  checkApiHealth();
+  setTimeout(openInitialScreen, 350);
+}
+
+
+function openInitialScreen() {
+  const done = localStorage.getItem(STORE.onboarding) === '1';
+  openScreen(done ? 'screen-home' : 'screen-onboarding-1');
+}
+
+function localizedAccessPageUrl() {
+  const raw = (gateState.accessPage || '').trim();
+  if (raw && /^https?:\/\//i.test(raw) && raw !== 'https://bb1studio.com/before-you-send/access/') return raw;
+  if (currentLang === 'it') return 'https://bb1studio.com/it/before-you-send/access/';
+  if (currentLang === 'es') return 'https://bb1studio.com/es/before-you-send/access/';
+  return 'https://bb1studio.com/before-you-send/access/';
+}
+
+function setGateError(message = '') {
+  const target = $('#gateError');
+  if (!target) return;
+  if (!message) {
+    target.textContent = '';
+    target.classList.add('hidden');
+    return;
+  }
+  target.textContent = message;
+  target.classList.remove('hidden');
+}
+
+function syncGateUI() {
+  const gateSel = $('#langSelectGate');
+  if (gateSel) gateSel.value = currentLang;
+  const accessCard = $('#accessSessionCard');
+  if (accessCard) accessCard.classList.toggle('hidden', !gateState.enabled);
+}
+
+function showGateScreen(message = '') {
+  syncGateUI();
+  setGateError(message);
+  openScreen('screen-gate', { scrollTop: true, restoreScroll: false });
+  requestAnimationFrame(() => $('#gateCodeInput')?.focus());
+}
+
+function forceGateLock(message = t('gate.error.required')) {
+  gateState.enabled = true;
+  gateState.unlocked = false;
+  showGateScreen(message);
+}
+
+async function refreshGateStatus(showError = true) {
+  try {
+    const res = await fetch('/api/access/status');
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(extractErrorMessage(data, t('gate.error.status')));
+    gateState = { ...gateState, ...data, statusError: false };
+    syncGateUI();
+    return true;
+  } catch (error) {
+    gateState.enabled = true;
+    gateState.unlocked = false;
+    gateState.statusError = true;
+    syncGateUI();
+    if (showError) setGateError(error.message || t('gate.error.status'));
+    return false;
+  }
+}
+
+async function unlockGate() {
+  const input = $('#gateCodeInput');
+  const button = $('#unlockAccessBtn');
+  const code = input?.value?.trim() || '';
+  if (!code) {
+    setGateError(t('gate.error.empty'));
+    input?.focus();
+    return;
+  }
+  setGateError('');
+  if (button) {
+    button.disabled = true;
+    button.textContent = t('gate.unlocking');
+  }
+  try {
+    const res = await fetch('/api/access/unlock', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      if (res.status === 403) throw new Error(t('gate.error.invalid'));
+      throw new Error(extractErrorMessage(data, t('gate.error.status')));
+    }
+    gateState = { ...gateState, ...data, statusError: false };
+    if (input) input.value = '';
+    setGateError('');
+    syncGateUI();
+    checkApiHealth();
+    setTimeout(openInitialScreen, 120);
+  } catch (error) {
+    setGateError(error.message || t('gate.error.invalid'));
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = t('gate.unlock');
+    }
+  }
+}
+
+async function lockGate() {
+  try {
+    await fetch('/api/access/logout', { method: 'POST' });
+  } catch {}
+  gateState.unlocked = false;
+  showGateScreen('');
+}
+
+function bindGate() {
+  $('#unlockAccessBtn')?.addEventListener('click', unlockGate);
+  $('#gateCodeInput')?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      unlockGate();
+    }
+  });
+  $('#openAccessPageBtn')?.addEventListener('click', () => {
+    window.open(localizedAccessPageUrl(), '_blank', 'noopener');
+  });
+}
+
+function extractErrorMessage(data, fallback = 'API error') {
+  if (!data || typeof data !== 'object') return fallback;
+  if (typeof data.detail === 'string' && data.detail) return data.detail;
+  if (data.detail && typeof data.detail === 'object') {
+    if (typeof data.detail.message === 'string' && data.detail.message) return data.detail.message;
+    if (typeof data.detail.code === 'string' && data.detail.code) return data.detail.code;
+  }
+  if (typeof data.message === 'string' && data.message) return data.message;
+  return fallback;
 }
 
 async function loadLocales() {
@@ -94,8 +241,11 @@ function applyTranslations() {
   });
   const homeSel = $('#langSelectHome');
   const settingsSel = $('#langSelectSettings');
+  const gateSel = $('#langSelectGate');
   if (homeSel) homeSel.value = currentLang;
   if (settingsSel) settingsSel.value = currentLang;
+  if (gateSel) gateSel.value = currentLang;
+  syncGateUI();
   renderHistory();
   renderStats();
   if (latestDecodeResult) renderDecodeResult(latestDecodeResult, latestDecodeResult.source || 'text', latestDecodeResult.input || '');
@@ -103,7 +253,7 @@ function applyTranslations() {
 }
 
 function bindLanguageSelectors() {
-  ['#langSelectHome', '#langSelectSettings'].forEach((sel) => {
+  ['#langSelectHome', '#langSelectSettings', '#langSelectGate'].forEach((sel) => {
     $(sel)?.addEventListener('change', (e) => setLanguage(e.target.value));
   });
 }
@@ -112,7 +262,7 @@ function setLanguage(lang) {
   currentLang = ['it','en','es'].includes(lang) ? lang : 'it';
   localStorage.setItem(STORE.lang, currentLang);
   applyTranslations();
-  checkApiHealth();
+  if (!gateState.enabled || gateState.unlocked) checkApiHealth();
 }
 
 function bindNavigation() {
@@ -204,9 +354,11 @@ function bindSettings() {
     renderStats();
   });
   $('#refreshApiHealth')?.addEventListener('click', checkApiHealth);
+  $('#lockAccessBtn')?.addEventListener('click', lockGate);
 }
 
 async function checkApiHealth() {
+  if (gateState.enabled && !gateState.unlocked) return;
   const badge = $('#apiStatusBadge');
   const detail = $('#apiStatusDetail');
   if (badge) {
@@ -382,14 +534,22 @@ async function runSendAnalysis(text) {
 async function apiJson(url, body) {
   const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.detail || 'API error');
+  if (res.status === 401) {
+    forceGateLock();
+    throw new Error(t('gate.error.required'));
+  }
+  if (!res.ok) throw new Error(extractErrorMessage(data, 'API error'));
   return data;
 }
 
 async function apiForm(url, formData) {
   const res = await fetch(url, { method:'POST', body: formData });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.detail || 'API error');
+  if (res.status === 401) {
+    forceGateLock();
+    throw new Error(t('gate.error.required'));
+  }
+  if (!res.ok) throw new Error(extractErrorMessage(data, 'API error'));
   return data;
 }
 
@@ -623,7 +783,7 @@ function sourceLabel(source) { return t(`source.${source}`); }
 function persistHistory(){ localStorage.setItem(STORE.history, JSON.stringify(historyLog)); }
 function persistSettings(){ localStorage.setItem(STORE.settings, JSON.stringify(settings)); hydrateSettingsUI(); }
 function hydrateSettingsUI(){ const btn = $('#toggleBlur'); if(btn){ btn.classList.toggle('on', settings.blurNames); btn.textContent = settings.blurNames ? 'ON' : 'OFF'; } }
-function hardReset(){ localStorage.removeItem(STORE.onboarding); localStorage.removeItem(STORE.history); localStorage.removeItem(STORE.settings); localStorage.removeItem(STORE.lang); historyLog=[]; settings={...defaultSettings}; currentLang = detectBrowserLang(); hydrateSettingsUI(); applyTranslations(); renderHistory(); renderStats(); openScreen('screen-onboarding-1'); }
+function hardReset(){ localStorage.removeItem(STORE.onboarding); localStorage.removeItem(STORE.history); localStorage.removeItem(STORE.settings); localStorage.removeItem(STORE.lang); historyLog=[]; settings={...defaultSettings}; currentLang = detectBrowserLang(); hydrateSettingsUI(); applyTranslations(); renderHistory(); renderStats(); if (gateState.enabled && !gateState.unlocked) { showGateScreen(''); return; } openScreen('screen-onboarding-1'); }
 function loadJSON(key, fallback){ try{ return JSON.parse(localStorage.getItem(key)||'null') ?? fallback; }catch{ return fallback; } }
 function formatDate(iso){ try { return new Date(iso).toLocaleString(currentLang === 'it' ? 'it-IT' : currentLang === 'es' ? 'es-ES' : 'en-US', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }); } catch { return iso; } }
 async function copyText(text){ try{ await navigator.clipboard.writeText(text); } catch { const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); } }

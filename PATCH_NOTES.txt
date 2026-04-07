@@ -1,5 +1,10 @@
-Public deploy corrective patch v2
-- share card export layout fixed (dynamic title/subtitle wrapping, no overlap)
-- decode reply labels forced to canonical localized labels
-- decode flags map extended for pending_response / urgency / professionalism
-- service worker cache bumped to bys-v3-public-complete-v2
+BYS V3 Public Locked — Gate v1 pack
+
+Included in this cumulative pack:
+- public locked base
+- reply/share corrective patch v2
+- scroll fix v4
+- splash fix v5
+- final app.py hardening
+- Gate v1 with server-side access code
+- service worker API-cache bypass

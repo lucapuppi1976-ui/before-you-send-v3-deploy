@@ -1,0 +1,14 @@
+BYS Gate v1
+
+What changed:
+- new early-access gate screen before onboarding/home
+- unlock code checked server-side
+- signed access cookie stored httpOnly
+- protected decode/send/config endpoints
+- settings action to lock the app again on this device
+- service worker cache bumped
+
+Render env to add:
+- BYS_ACCESS_CODE (private)
+- BYS_GATE_SECRET (private)
+- optional BYS_ACCESS_PAGE_URL

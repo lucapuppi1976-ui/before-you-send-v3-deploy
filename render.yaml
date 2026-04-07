@@ -10,6 +10,12 @@ services:
     envVars:
       - key: OPENAI_API_KEY
         sync: false
+      - key: BYS_ACCESS_CODE
+        sync: false
+      - key: BYS_GATE_SECRET
+        sync: false
+      - key: BYS_ACCESS_PAGE_URL
+        value: "https://bb1studio.com/before-you-send/access/"
       - key: BYS_PUBLIC_DEPLOY
         value: "true"
       - key: PYTHON_VERSION

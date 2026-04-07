@@ -55,6 +55,16 @@ textarea {
   line-height: 1.45;
 }
 textarea::placeholder { color: #8f9ab0; }
+.text-input {
+  width: 100%;
+  padding: 16px 18px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: rgba(6, 10, 19, 0.55);
+  color: var(--text);
+  outline: none;
+}
+.text-input::placeholder { color: #8f9ab0; }
 input[type="file"] {
   width: 100%;
   color: var(--muted);
@@ -177,6 +187,7 @@ hr.sep {
   gap: 10px;
 }
 .actions, .bottom-actions { grid-template-columns: 1fr 1fr; }
+.actions.single-col { grid-template-columns: 1fr; }
 .file-row { grid-template-columns: 1fr; }
 .bottom-actions .primary { justify-self: stretch; }
 .stat {
@@ -240,6 +251,20 @@ hr.sep {
 }
 .splash h1 { margin: 8px 0; font-size: 2rem; }
 .splash p { margin: 0; color: var(--soft); max-width: 300px; }
+.gate-shell {
+  min-height: calc(100dvh - 120px);
+  display: grid;
+  align-content: center;
+  gap: 18px;
+}
+.gate-card h1 {
+  margin: 6px 0 0;
+  font-size: 1.55rem;
+  line-height: 1.08;
+}
+.gate-error {
+  color: #ffd9d9;
+}
 .progress {
   display: flex;
   gap: 8px;

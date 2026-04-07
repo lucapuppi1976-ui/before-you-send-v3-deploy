@@ -1,4 +1,4 @@
-const CACHE = 'bys-v3-public-complete-v5';
+const CACHE = 'bys-v3-public-gate-v1';
 const ASSETS = [
   './',
   './index.html',
@@ -26,6 +26,11 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  const url = new URL(event.request.url);
+  if (url.pathname.startsWith('/api/')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
   event.respondWith(
     caches.match(event.request).then(hit => hit || fetch(event.request).then(res => {
       const copy = res.clone();

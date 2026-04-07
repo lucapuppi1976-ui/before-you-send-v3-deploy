@@ -20,6 +20,36 @@
     </div>
   </section>
 
+  <section id="screen-gate" class="screen">
+    <div class="gate-shell">
+      <div class="logo">BYS</div>
+      <section class="card stack-sm gate-card">
+        <div class="between lang-row">
+          <div>
+            <p class="eyebrow" data-i18n="gate.eyebrow">EARLY ACCESS</p>
+            <h1 data-i18n="gate.title">Open with your access code</h1>
+          </div>
+          <div class="lang-picker compact">
+            <label for="langSelectGate" class="visually-hidden" data-i18n="lang.label">Language</label>
+            <select id="langSelectGate">
+              <option value="it">Italiano</option>
+              <option value="en">English</option>
+              <option value="es">Español</option>
+            </select>
+          </div>
+        </div>
+        <p class="muted" data-i18n="gate.p">Before You Send is currently available to early-access members. Enter your access code to continue.</p>
+        <input id="gateCodeInput" class="text-input" type="password" autocomplete="one-time-code" inputmode="text" data-i18n-placeholder="gate.placeholder" placeholder="Enter access code">
+        <div id="gateError" class="caption gate-error hidden"></div>
+        <div class="actions single-col">
+          <button class="primary" id="unlockAccessBtn" data-i18n="gate.unlock">Open app</button>
+          <button class="ghost" id="openAccessPageBtn" data-i18n="gate.access">View access options</button>
+        </div>
+        <p class="caption" data-i18n="gate.note">Access is currently managed manually for early members.</p>
+      </section>
+    </div>
+  </section>
+
   <section id="screen-onboarding-1" class="screen onboarding-slide">
     <div class="topbar">
       <div class="brand">
@@ -273,6 +303,16 @@
             <option value="es">Español</option>
           </select>
         </div>
+      </div>
+    </section>
+
+    <section id="accessSessionCard" class="card stack-sm hidden">
+      <div class="switch">
+        <div>
+          <strong data-i18n="settings.access.title">Sessione di accesso</strong>
+          <p class="caption" data-i18n="settings.access.p">Blocca l'app su questo dispositivo.</p>
+        </div>
+        <button class="ghost" id="lockAccessBtn" data-i18n="settings.access.lock">Blocca</button>
       </div>
     </section>
 
