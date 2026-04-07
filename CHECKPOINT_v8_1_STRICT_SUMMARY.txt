@@ -1,0 +1,25 @@
+BYS CHECKPOINT v8.1 — STRICT
+
+This pack is the current checkpoint pack for before-you-send-v3-deploy.
+
+What is included:
+- gate-enabled app files
+- localized gate strings in IT / EN / ES
+- render.yaml aligned for gate deployment
+- sw.js cache bump for localized gate delivery
+
+Important after upload to GitHub:
+1. Make sure the folders assets/ and locales/ are overwritten too.
+2. Then manually delete any BB1 residue still present in the BYS repo:
+   - bys/
+   - privacy.html
+   - terms.html
+   - robots.txt
+   - sitemap.xml
+3. Commit and let Render auto-deploy.
+
+Post-deploy expected result:
+- bys.bb1studio.com opens on the access gate
+- gate strings are translated (no raw keys like gate.title)
+- wrong code shows an error
+- correct code unlocks the app

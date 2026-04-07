@@ -1,0 +1,6 @@
+Quick verify after upload:
+- locales/es.json contains gate.title
+- locales/en.json contains gate.title
+- locales/it.json contains gate.title
+- sw.js contains CACHE = bys-v3-public-gate-v1-2
+- render.yaml contains BYS_GATE_ENABLED = true
