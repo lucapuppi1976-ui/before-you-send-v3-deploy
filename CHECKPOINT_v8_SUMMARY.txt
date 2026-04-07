@@ -1,0 +1,11 @@
+BYS CHECKPOINT v8
+
+Includes:
+- public app base
+- all previously locked UI fixes
+- gate v1
+- fixed gate translations
+- service worker cache bump
+- explicit gate flag in render.yaml
+
+One-time repo cleanup still required on GitHub if BB1 files are present.

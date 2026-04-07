@@ -1,10 +1,11 @@
-DELETE THESE IF THEY ARE STILL IN before-you-send-v3-deploy
+ONE-TIME CLEANUP FOR THE CURRENT GitHub REPO
 
-These belong to the BB1 Studio root site workflow, not to the BYS app pack:
+After uploading this checkpoint to before-you-send-v3-deploy,
+delete these items if they are still present in the repo:
 - bys/
 - privacy.html
 - terms.html
 - robots.txt
 - sitemap.xml
 
-Also replace any old README_MASTER_WORKFLOW.txt that mentions "BB1 STUDIO SITE" with the one included in this pack.
+These belong to the BB1 Studio root site workflow, not to the BYS app repo.

@@ -1,4 +1,4 @@
-const CACHE = 'bys-v3-public-gate-v1';
+const CACHE = 'bys-v3-public-gate-v1-2';
 const ASSETS = [
   './',
   './index.html',
