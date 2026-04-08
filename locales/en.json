@@ -132,5 +132,20 @@
   "metric.urgency": "Urgency",
   "source.text": "Text",
   "source.voice": "Voice note",
-  "source.image": "Screenshot"
+  "source.image": "Screenshot",
+  "gate.eyebrow": "EARLY ACCESS",
+  "gate.title": "Open with your access code",
+  "gate.p": "Before You Send is currently available to early-access members. Enter your code to continue.",
+  "gate.placeholder": "Enter your access code",
+  "gate.unlock": "Open app",
+  "gate.unlocking": "Opening…",
+  "gate.access": "View access options",
+  "gate.note": "Access is currently managed manually during this early phase.",
+  "gate.error.empty": "Enter your access code.",
+  "gate.error.invalid": "Invalid code. Check it and try again.",
+  "gate.error.required": "An access code is required to continue.",
+  "gate.error.status": "I cannot verify access right now. Please try again shortly.",
+  "settings.access.title": "Access session",
+  "settings.access.p": "Lock the app on this device.",
+  "settings.access.lock": "Lock"
 }

@@ -132,5 +132,20 @@
   "metric.urgency": "Urgenza",
   "source.text": "Testo",
   "source.voice": "Vocale",
-  "source.image": "Screenshot"
+  "source.image": "Screenshot",
+  "gate.eyebrow": "ACCESSO ANTICIPATO",
+  "gate.title": "Apri con il tuo codice di accesso",
+  "gate.p": "Before You Send è disponibile al momento per i membri early access. Inserisci il tuo codice per continuare.",
+  "gate.placeholder": "Inserisci il codice di accesso",
+  "gate.unlock": "Apri app",
+  "gate.unlocking": "Apro…",
+  "gate.access": "Vedi le opzioni di accesso",
+  "gate.note": "L’accesso è gestito manualmente in questa fase iniziale.",
+  "gate.error.empty": "Inserisci il codice di accesso.",
+  "gate.error.invalid": "Codice non valido. Controllalo e riprova.",
+  "gate.error.required": "Serve un codice di accesso per continuare.",
+  "gate.error.status": "Non riesco a verificare l’accesso in questo momento. Riprova tra poco.",
+  "settings.access.title": "Sessione di accesso",
+  "settings.access.p": "Blocca l’app su questo dispositivo.",
+  "settings.access.lock": "Blocca"
 }
