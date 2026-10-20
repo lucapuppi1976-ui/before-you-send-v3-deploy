@@ -39,7 +39,7 @@
           </div>
         </div>
         <p class="muted" data-i18n="gate.p">Before You Send is currently available to early-access members. Enter your access code to continue.</p>
-        <input id="gateCodeInput" class="text-input" type="password" autocomplete="one-time-code" inputmode="text" data-i18n-placeholder="gate.placeholder" placeholder="Enter access code">
+        <input id="gateCodeInput" class="text-input" type="password" autocomplete="one-time-code" inputmode="text" maxlength="128" data-i18n-placeholder="gate.placeholder" placeholder="Enter access code">
         <div id="gateError" class="caption gate-error hidden"></div>
         <div class="actions single-col">
           <button class="primary" id="unlockAccessBtn" data-i18n="gate.unlock">Open app</button>
@@ -101,7 +101,7 @@
       <button class="ghost" data-skip-onboarding data-i18n="onb.skip">Salta</button>
     </div>
     <div class="progress"><div class="dot on"></div><div class="dot on"></div><div class="dot on"></div></div>
-    <div class="card notice" data-i18n="onb3.notice">Questa versione usa AI vera. L’elaborazione avviene in modo sicuro lato server.</div>
+    <div class="card notice" data-i18n="onb3.notice">Testi e screenshot vengono analizzati da Anthropic (Claude), i vocali vengono trascritti da Groq. Il server di BYS non salva i tuoi contenuti e la cronologia resta solo su questo dispositivo.</div>
     <h2 data-i18n="onb3.h2">Aprila sul telefono come una vera app.</h2>
     <p data-i18n="onb3.p">Aggiungila alla Home per tenerla sempre a portata di mano.</p>
     <div class="bottom-actions">
@@ -142,6 +142,7 @@
       <p data-i18n="home.hero.p">Prova messaggi, vocali e screenshot direttamente dal telefono. Risponde in pochi secondi.</p>
       <div id="apiStatusBadge" class="badge waiting" data-health-badge>Controllo in corso…</div>
       <div id="apiStatusDetail" class="caption muted" data-health-detail>Verifica della connessione AI…</div>
+      <div id="quotaInfo" class="caption hidden" aria-live="polite"></div>
       <div class="actions" style="margin-top:8px;">
         <button class="ghost small" id="refreshApiHealth" data-i18n="home.health.refresh">Controlla connessione</button>
         <button class="ghost small" id="runQuickDemo" data-i18n="home.quickdemo">Prova subito</button>
@@ -192,7 +193,7 @@
 
       <div id="decode-mode-text" class="stack-sm">
         <p class="muted" data-i18n="decode.text.help">Incolla un messaggio o la trascrizione di un vocale.</p>
-        <textarea id="decodeTextInput" data-i18n-placeholder="decode.text.placeholder" placeholder="Incolla qui un messaggio o la trascrizione di un vocale" spellcheck="false" autocorrect="off" autocapitalize="sentences"></textarea>
+        <textarea id="decodeTextInput" maxlength="6000" data-i18n-placeholder="decode.text.placeholder" placeholder="Incolla qui un messaggio o la trascrizione di un vocale" spellcheck="false" autocorrect="off" autocapitalize="sentences"></textarea>
         <div class="actions">
           <button class="ghost" id="decodeTextSample" data-i18n="decode.sample">Prova esempio</button>
           <button class="primary" id="decodeTextAnalyze" data-i18n="decode.analyze">Analizza</button>
@@ -201,12 +202,13 @@
 
       <div id="decode-mode-voice" class="stack-sm hidden">
         <p class="muted" data-i18n="decode.voice.help">Puoi caricare un file audio oppure incollare direttamente una trascrizione.</p>
+        <p id="voiceUnavailableNote" class="caption hidden" data-i18n="decode.voice.unavailable">La trascrizione automatica dei vocali non è ancora disponibile: incolla qui sotto il testo del vocale.</p>
         <div class="file-row">
           <button class="ghost" id="useDemoVoice" data-i18n="decode.voice.sample">Prova vocale demo</button>
           <input type="file" id="voiceUpload" accept="audio/*">
         </div>
         <audio id="voicePlayer" controls class="hidden"></audio>
-        <textarea id="voiceTranscript" data-i18n-placeholder="decode.voice.placeholder" placeholder="Se vuoi, incolla qui la trascrizione del vocale." spellcheck="false" autocorrect="off" autocapitalize="sentences"></textarea>
+        <textarea id="voiceTranscript" maxlength="6000" data-i18n-placeholder="decode.voice.placeholder" placeholder="Se vuoi, incolla qui la trascrizione del vocale." spellcheck="false" autocorrect="off" autocapitalize="sentences"></textarea>
         <div class="actions">
           <button class="primary" id="decodeVoiceAnalyze" data-i18n="decode.voice.analyze">Analizza il vocale</button>
         </div>
@@ -219,7 +221,7 @@
           <input type="file" id="imageUpload" accept="image/*">
         </div>
         <img id="imagePreview" src="assets/chat_demo_final.png" alt="Preview screenshot" class="preview-img hidden">
-        <textarea id="imageExtractedText" data-i18n-placeholder="decode.image.placeholder" placeholder="Se preferisci, incolla qui il testo estratto dallo screenshot." spellcheck="false" autocorrect="off" autocapitalize="sentences"></textarea>
+        <textarea id="imageExtractedText" maxlength="6000" data-i18n-placeholder="decode.image.placeholder" placeholder="Se preferisci, incolla qui il testo estratto dallo screenshot." spellcheck="false" autocorrect="off" autocapitalize="sentences"></textarea>
         <div class="actions">
           <button class="primary" id="decodeImageAnalyze" data-i18n="decode.image.analyze">Analizza lo screenshot</button>
         </div>
@@ -240,7 +242,7 @@
 
     <section class="card stack-sm">
       <div class="pill" data-i18n="send.context">Dopo che ha rimandato</div>
-      <textarea id="sendInput" data-i18n-placeholder="send.placeholder" placeholder="Incolla qui il messaggio che stai per inviare" spellcheck="false" autocorrect="off" autocapitalize="sentences"></textarea>
+      <textarea id="sendInput" maxlength="6000" data-i18n-placeholder="send.placeholder" placeholder="Incolla qui il messaggio che stai per inviare" spellcheck="false" autocorrect="off" autocapitalize="sentences"></textarea>
       <div class="actions">
         <button class="ghost" id="sendSample" data-i18n="send.sample">Prova esempio</button>
         <button class="primary" id="sendAnalyze" data-i18n="send.analyze">Controlla il tono</button>
@@ -270,13 +272,6 @@
     </div>
 
     <section class="card stack-sm">
-      <div class="switch">
-        <div>
-          <strong data-i18n="settings.blur.title">Offusca i nomi</strong>
-          <p class="caption" data-i18n="settings.blur.p">La share card tiene i nomi offuscati.</p>
-        </div>
-        <button class="toggle on" id="toggleBlur" aria-label="Toggle blur"></button>
-      </div>
       <div class="switch">
         <div>
           <strong data-i18n="settings.onboarding.title">Rivedi onboarding</strong>

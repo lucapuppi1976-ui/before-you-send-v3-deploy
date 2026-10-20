@@ -9,8 +9,11 @@ const STORE = {
   lang: 'bys_lang_liveai_v2',
 };
 
-const defaultSettings = { blurNames: true };
-let settings = loadJSON(STORE.settings, defaultSettings);
+const DEFAULT_ACCESS_PAGE = 'https://bb1studio.com/before-you-send/access/';
+const UPLOAD_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+const MAX_IMAGE_EDGE = 1600;
+const JPEG_QUALITY = 0.85;
+
 let historyLog = loadJSON(STORE.history, []);
 let currentDecodeMode = 'text';
 let currentRewriteMode = 'clear';
@@ -23,9 +26,11 @@ let currentLang = localStorage.getItem(STORE.lang) || detectBrowserLang();
 let gateState = {
   enabled: false,
   unlocked: true,
-  accessPage: 'https://bb1studio.com/before-you-send/access/',
+  accessPage: DEFAULT_ACCESS_PAGE,
   statusError: false,
 };
+let capabilities = { text: true, voice: true, image: true };
+let remainingAnalyses = null;
 
 const samples = {
   decodeText: 'No tranquilla, vediamo più avanti :)',
@@ -38,7 +43,6 @@ init();
 
 async function init() {
   await loadLocales();
-  hydrateSettingsUI();
   bindNavigation();
   bindOnboarding();
   bindHome();
@@ -69,12 +73,14 @@ function openInitialScreen() {
   openScreen(done ? 'screen-home' : 'screen-onboarding-1');
 }
 
-function localizedAccessPageUrl() {
-  const raw = (gateState.accessPage || '').trim();
-  if (raw && /^https?:\/\//i.test(raw) && raw !== 'https://bb1studio.com/before-you-send/access/') return raw;
-  if (currentLang === 'it') return 'https://bb1studio.com/it/before-you-send/access/';
-  if (currentLang === 'es') return 'https://bb1studio.com/es/before-you-send/access/';
-  return 'https://bb1studio.com/before-you-send/access/';
+function accessPageUrl() {
+  // The server provides the access page (BYS_ACCESS_PAGE_URL) in /api/access/status.
+  const raw = String(gateState.accessPage || '').trim();
+  return /^https?:\/\//i.test(raw) ? raw : DEFAULT_ACCESS_PAGE;
+}
+
+function openAccessPage() {
+  window.open(accessPageUrl(), '_blank', 'noopener');
 }
 
 function setGateError(message = '') {
@@ -142,15 +148,26 @@ async function unlockGate() {
     button.textContent = t('gate.unlocking');
   }
   try {
-    const res = await fetch('/api/access/unlock', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code }),
-    });
+    let res;
+    try {
+      res = await fetch('/api/access/unlock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, lang: currentLang }),
+      });
+    } catch {
+      throw new Error(t('error.network'));
+    }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      if (res.status === 403) throw new Error(t('gate.error.invalid'));
-      throw new Error(extractErrorMessage(data, t('gate.error.status')));
+      const detail = errorDetail(data);
+      if (detail && detail.code === 'trial_ended') {
+        if (detail.accessPage) gateState.accessPage = detail.accessPage;
+        throw new Error(detail.message || t('error.trial_ended'));
+      }
+      if (res.status === 429) throw new Error(t('error.rate_limited'));
+      if (res.status === 403 || res.status === 422) throw new Error(t('gate.error.invalid'));
+      throw new Error(t('gate.error.status'));
     }
     gateState = { ...gateState, ...data, statusError: false };
     if (input) input.value = '';
@@ -184,9 +201,11 @@ function bindGate() {
       unlockGate();
     }
   });
-  $('#openAccessPageBtn')?.addEventListener('click', () => {
-    window.open(localizedAccessPageUrl(), '_blank', 'noopener');
-  });
+  $('#openAccessPageBtn')?.addEventListener('click', openAccessPage);
+}
+
+function errorDetail(data) {
+  return data && data.detail && typeof data.detail === 'object' ? data.detail : null;
 }
 
 function extractErrorMessage(data, fallback = 'API error') {
@@ -246,6 +265,7 @@ function applyTranslations() {
   if (settingsSel) settingsSel.value = currentLang;
   if (gateSel) gateSel.value = currentLang;
   syncGateUI();
+  renderQuota();
   renderHistory();
   renderStats();
   if (latestDecodeResult) renderDecodeResult(latestDecodeResult, latestDecodeResult.source || 'text', latestDecodeResult.input || '');
@@ -338,10 +358,6 @@ function bindSendScore() {
 }
 
 function bindSettings() {
-  $('#toggleBlur')?.addEventListener('click', () => {
-    settings.blurNames = !settings.blurNames;
-    persistSettings();
-  });
   $('#rerunOnboarding')?.addEventListener('click', () => {
     localStorage.removeItem(STORE.onboarding);
     openScreen('screen-onboarding-1');
@@ -367,9 +383,16 @@ async function checkApiHealth() {
   }
   if (detail) detail.textContent = t('home.health.checking.detail');
   try {
-    const res = await fetch('/api/health');
+    // /api/health only says the server is up; the gated config tells what is available.
+    const res = await fetch('/api/config');
+    if (res.status === 401) {
+      forceGateLock();
+      return;
+    }
+    if (!res.ok) throw new Error('config unavailable');
     const data = await res.json();
-    apiHealthy = Boolean(data.ok && data.apiConfigured);
+    applyConfig(data);
+    apiHealthy = capabilities.text;
     if (badge) {
       badge.textContent = apiHealthy ? t('home.health.ok.badge') : t('home.health.bad.badge');
       badge.className = `badge ${apiHealthy ? 'success' : 'warn'}`;
@@ -385,6 +408,49 @@ async function checkApiHealth() {
     }
     if (detail) detail.textContent = t('home.health.off.detail');
   }
+}
+
+function applyConfig(data) {
+  const supports = (data && data.supports) || {};
+  capabilities = { text: supports.text !== false, voice: supports.voice !== false, image: supports.image !== false };
+  setRemaining(data && data.access ? data.access.remaining : null);
+  applyCapabilities();
+}
+
+function applyCapabilities() {
+  // Without a transcription key the voice tab keeps working with a pasted transcript.
+  const voiceOff = !capabilities.voice;
+  const upload = $('#voiceUpload');
+  if (upload) {
+    upload.classList.toggle('hidden', voiceOff);
+    upload.disabled = voiceOff;
+    if (voiceOff) upload.value = '';
+  }
+  $('#voiceUnavailableNote')?.classList.toggle('hidden', !voiceOff);
+}
+
+function setRemaining(value) {
+  const number = typeof value === 'string' ? Number(value) : value;
+  remainingAnalyses = Number.isInteger(number) && number >= 0 ? number : null;
+  renderQuota();
+}
+
+function updateRemainingFromResponse(res) {
+  const raw = res.headers.get('X-BYS-Remaining');
+  if (raw !== null && /^\d+$/.test(raw)) setRemaining(Number(raw));
+}
+
+function renderQuota() {
+  const target = $('#quotaInfo');
+  if (!target) return;
+  if (remainingAnalyses === null) {
+    target.textContent = '';
+    target.classList.add('hidden');
+    return;
+  }
+  const n = remainingAnalyses;
+  target.textContent = n === 0 ? t('home.quota.none') : n === 1 ? t('home.quota.one') : t('home.quota.left', { n });
+  target.classList.remove('hidden');
 }
 
 function registerInstall() {
@@ -404,9 +470,11 @@ function registerInstall() {
 }
 
 function registerSW() {
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(console.warn));
-  }
+  if (!('serviceWorker' in navigator)) return;
+  const register = () => navigator.serviceWorker.register('./sw.js').catch(console.warn);
+  // init() awaits the locales first, so the load event has often fired already.
+  if (document.readyState === 'complete') register();
+  else window.addEventListener('load', register, { once: true });
 }
 
 function finishOnboarding() {
@@ -483,7 +551,7 @@ async function runDecodeText(text) {
       payload: { ...result, source: 'text', input: text },
     });
   } catch (error) {
-    showDecodeError(error.message);
+    showDecodeError(error);
   }
 }
 
@@ -491,7 +559,7 @@ async function runDecodeVoice() {
   showLoadingDecode(t('results.loading.voice'));
   try {
     const form = new FormData();
-    const file = $('#voiceUpload')?.files?.[0];
+    const file = capabilities.voice ? $('#voiceUpload')?.files?.[0] : null;
     const transcript = $('#voiceTranscript')?.value?.trim();
     if (file) form.append('file', file);
     if (transcript) form.append('transcript', transcript);
@@ -501,7 +569,7 @@ async function runDecodeVoice() {
     latestDecodeResult = result;
     renderDecodeResult(result, 'voice', result.transcript || transcript || '');
     saveHistory({ type:'decode', title: result.verdict, subtitle: sourceLabel('voice'), createdAt: new Date().toISOString(), payload: { ...result, source:'voice', input: result.transcript || transcript || '' } });
-  } catch (error) { showDecodeError(error.message); }
+  } catch (error) { showDecodeError(error); }
 }
 
 async function runDecodeImage() {
@@ -510,15 +578,18 @@ async function runDecodeImage() {
     const form = new FormData();
     const file = $('#imageUpload')?.files?.[0];
     const extractedText = $('#imageExtractedText')?.value?.trim();
-    if (file) form.append('file', file);
+    if (!file && !extractedText) throw new Error(currentLang === 'it' ? 'Carica uno screenshot o incolla il testo estratto.' : currentLang === 'es' ? 'Sube una captura o pega el texto extraído.' : 'Upload a screenshot or paste extracted text.');
+    if (file) {
+      const upload = await prepareImageUpload(file);
+      form.append('file', upload, upload.name || 'screenshot.jpg');
+    }
     if (extractedText) form.append('extracted_text', extractedText);
     form.append('lang', currentLang);
-    if (!file && !extractedText) throw new Error(currentLang === 'it' ? 'Carica uno screenshot o incolla il testo estratto.' : currentLang === 'es' ? 'Sube una captura o pega el texto extraído.' : 'Upload a screenshot or paste extracted text.');
     const result = await apiForm('/api/decode/image', form);
     latestDecodeResult = result;
     renderDecodeResult(result, 'image', result.extracted_text || extractedText || '');
     saveHistory({ type:'decode', title: result.verdict, subtitle: sourceLabel('image'), createdAt: new Date().toISOString(), payload: { ...result, source:'image', input: result.extracted_text || extractedText || '' } });
-  } catch (error) { showDecodeError(error.message); }
+  } catch (error) { showDecodeError(error); }
 }
 
 async function runSendAnalysis(text) {
@@ -528,29 +599,93 @@ async function runSendAnalysis(text) {
     latestSendResult = result;
     renderSendResult(result, text);
     saveHistory({ type:'send', title:`${result.score}/100 — ${result.label}`, subtitle:t('send.title'), createdAt:new Date().toISOString(), payload: result });
-  } catch (error) { showSendError(error.message); }
+  } catch (error) { showSendError(error); }
 }
 
-async function apiJson(url, body) {
-  const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+// Screenshots are downscaled before upload (long edge 1600 px, JPEG ~0.85): faster and cheaper.
+async function prepareImageUpload(file) {
+  let image;
+  try {
+    image = await loadImageSource(file);
+  } catch {
+    return file; // the browser cannot decode it; the server decides whether the format is supported
+  }
+  try {
+    if (!image.width || !image.height) return file;
+    const scale = Math.min(1, MAX_IMAGE_EDGE / Math.max(image.width, image.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(image.width * scale));
+    canvas.height = Math.max(1, Math.round(image.height * scale));
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff'; // JPEG has no transparency
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(image.source, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', JPEG_QUALITY));
+    if (!blob) return file;
+    if (scale === 1 && blob.size >= file.size && UPLOAD_IMAGE_TYPES.includes(file.type)) return file;
+    return new File([blob], 'screenshot.jpg', { type: 'image/jpeg' });
+  } finally {
+    image.release();
+  }
+}
+
+async function loadImageSource(file) {
+  if (typeof createImageBitmap === 'function') {
+    try {
+      const bitmap = await createImageBitmap(file);
+      return { source: bitmap, width: bitmap.width, height: bitmap.height, release: () => bitmap.close?.() };
+    } catch {}
+  }
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.src = url;
+  try {
+    await img.decode();
+  } catch (error) {
+    URL.revokeObjectURL(url);
+    throw error;
+  }
+  return { source: img, width: img.naturalWidth, height: img.naturalHeight, release: () => URL.revokeObjectURL(url) };
+}
+
+async function apiRequest(url, init) {
+  let res;
+  try {
+    res = await fetch(url, init);
+  } catch {
+    throw new Error(t('error.network'));
+  }
   const data = await res.json().catch(() => ({}));
+  updateRemainingFromResponse(res);
   if (res.status === 401) {
     forceGateLock();
     throw new Error(t('gate.error.required'));
   }
-  if (!res.ok) throw new Error(extractErrorMessage(data, 'API error'));
+  if (!res.ok) throw apiError(res.status, data);
   return data;
 }
 
-async function apiForm(url, formData) {
-  const res = await fetch(url, { method:'POST', body: formData });
-  const data = await res.json().catch(() => ({}));
-  if (res.status === 401) {
-    forceGateLock();
-    throw new Error(t('gate.error.required'));
+function apiError(status, data) {
+  const detail = errorDetail(data);
+  if (detail && detail.code === 'trial_ended') {
+    if (detail.accessPage) gateState.accessPage = detail.accessPage;
+    const error = new Error(detail.message || t('error.trial_ended'));
+    error.showAccess = true;
+    return error;
   }
-  if (!res.ok) throw new Error(extractErrorMessage(data, 'API error'));
-  return data;
+  // Errors raised by the endpoints carry a message localized by the server.
+  if (detail && typeof detail.message === 'string' && detail.message) return new Error(detail.message);
+  if (status === 413) return new Error(t('error.too_large'));
+  if (status === 429) return new Error(t('error.rate_limited'));
+  return new Error(t('error.generic'));
+}
+
+function apiJson(url, body) {
+  return apiRequest(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+}
+
+function apiForm(url, formData) {
+  return apiRequest(url, { method:'POST', body: formData });
 }
 
 function showLoadingDecode(message) {
@@ -565,16 +700,14 @@ function showLoadingSend(message) {
   target.innerHTML = `<section class="card loading-card"><div class="spinner"></div><p>${escapeHTML(message)}</p></section>`;
   scrollSectionIntoView(target);
 }
-function showDecodeError(message) {
-  const target = $('#decodeResult');
+function showDecodeError(error) { renderErrorCard($('#decodeResult'), t('error.decode'), error); }
+function showSendError(error) { renderErrorCard($('#sendResult'), t('error.send'), error); }
+function renderErrorCard(target, title, error) {
+  const message = typeof error === 'string' ? error : (error?.message || t('error.generic'));
+  const accessButton = error?.showAccess ? `<button class="ghost" data-open-access>${escapeHTML(t('gate.access'))}</button>` : '';
   target.classList.remove('hidden');
-  target.innerHTML = `<section class="card error-card"><strong>${escapeHTML(t('error.decode'))}</strong><p>${escapeHTML(message)}</p></section>`;
-  scrollSectionIntoView(target);
-}
-function showSendError(message) {
-  const target = $('#sendResult');
-  target.classList.remove('hidden');
-  target.innerHTML = `<section class="card error-card"><strong>${escapeHTML(t('error.send'))}</strong><p>${escapeHTML(message)}</p></section>`;
+  target.innerHTML = `<section class="card error-card"><strong>${escapeHTML(title)}</strong><p>${escapeHTML(message)}</p>${accessButton}</section>`;
+  target.querySelector('[data-open-access]')?.addEventListener('click', openAccessPage);
   scrollSectionIntoView(target);
 }
 
@@ -611,7 +744,7 @@ function renderDecodeResult(result, source, text) {
     </section>`;
   $('#copyBestReply')?.addEventListener('click', async () => { await copyText(result.replies[0]?.text || ''); });
   $('#shareDecodeBtn')?.addEventListener('click', () => {
-    lastSharePayload = { title: result.verdict, subtitle: result.meaning, badge: sourceLabel(source), chips: result.flags.slice(0,3), footer: settings.blurNames ? t('misc.names_yes') : t('misc.names_no'), type: 'decode' };
+    lastSharePayload = { title: result.verdict, subtitle: result.meaning, badge: sourceLabel(source), chips: result.flags.slice(0,3), footer: t('share.footer'), type: 'decode' };
     downloadShareCard('bys_decode_share.png');
   });
   scrollSectionIntoView(target);
@@ -650,7 +783,7 @@ function renderSendResult(result, text) {
   }));
   $('#copyRewriteBtn')?.addEventListener('click', async () => { await copyText(result.rewrites[currentRewriteMode]); });
   $('#shareSendBtn')?.addEventListener('click', () => {
-    lastSharePayload = { title: t('share.score', { score: result.score }), subtitle: result.issue, badge: result.label, chips: topSendChips(result), footer: settings.blurNames ? t('misc.names_yes') : t('misc.names_no'), type: 'send' };
+    lastSharePayload = { title: t('share.score', { score: result.score }), subtitle: result.issue, badge: result.label, chips: topSendChips(result), footer: t('share.footer'), type: 'send' };
     downloadShareCard('bys_sendscore_share.png');
   });
   scrollSectionIntoView(target);
@@ -675,8 +808,8 @@ function renderHistory() {
 function openFromHistory(index) { const item = historyLog[index]; if (!item) return; if (item.type === 'decode') { setDecodeMode(item.payload.source || 'text'); openScreen('screen-decode', { scrollTop: false, restoreScroll: false }); renderDecodeResult(item.payload, item.payload.source || 'text', item.payload.input || ''); } else { openScreen('screen-send', { scrollTop: false, restoreScroll: false }); renderSendResult(item.payload, item.payload.input || ''); } }
 function shareFromHistory(index) {
   const item = historyLog[index]; if (!item) return;
-  if (item.type === 'decode') { lastSharePayload = { title:item.payload.verdict, subtitle:item.payload.meaning, badge:sourceLabel(item.payload.source || 'text'), chips:item.payload.flags.slice(0,3), footer: settings.blurNames ? t('misc.names_yes') : t('misc.names_no'), type:'decode' }; downloadShareCard('bys_decode_share.png'); }
-  else { lastSharePayload = { title:t('share.score',{score:item.payload.score}), subtitle:item.payload.issue, badge:item.payload.label, chips:topSendChips(item.payload), footer: settings.blurNames ? t('misc.names_yes') : t('misc.names_no'), type:'send' }; downloadShareCard('bys_sendscore_share.png'); }
+  if (item.type === 'decode') { lastSharePayload = { title:item.payload.verdict, subtitle:item.payload.meaning, badge:sourceLabel(item.payload.source || 'text'), chips:item.payload.flags.slice(0,3), footer: t('share.footer'), type:'decode' }; downloadShareCard('bys_decode_share.png'); }
+  else { lastSharePayload = { title:t('share.score',{score:item.payload.score}), subtitle:item.payload.issue, badge:item.payload.label, chips:topSendChips(item.payload), footer: t('share.footer'), type:'send' }; downloadShareCard('bys_sendscore_share.png'); }
 }
 function renderStats() { $('#statAnalyses').textContent = historyLog.length; $('#statLastMode').textContent = historyLog[0] ? (historyLog[0].type === 'decode' ? t('misc.received') : t('misc.send')) : '—'; }
 
@@ -781,9 +914,7 @@ function fitWrappedText(ctx, text, x, y, maxWidth, options = {}) {
 function wrapText(ctx, text, x, y, maxWidth, lineHeight) { const lines = wrapTextLines(ctx, text, maxWidth); lines.forEach((line, idx) => ctx.fillText(line, x, y + (idx * lineHeight))); }
 function sourceLabel(source) { return t(`source.${source}`); }
 function persistHistory(){ localStorage.setItem(STORE.history, JSON.stringify(historyLog)); }
-function persistSettings(){ localStorage.setItem(STORE.settings, JSON.stringify(settings)); hydrateSettingsUI(); }
-function hydrateSettingsUI(){ const btn = $('#toggleBlur'); if(btn){ btn.classList.toggle('on', settings.blurNames); btn.textContent = settings.blurNames ? 'ON' : 'OFF'; } }
-function hardReset(){ localStorage.removeItem(STORE.onboarding); localStorage.removeItem(STORE.history); localStorage.removeItem(STORE.settings); localStorage.removeItem(STORE.lang); historyLog=[]; settings={...defaultSettings}; currentLang = detectBrowserLang(); hydrateSettingsUI(); applyTranslations(); renderHistory(); renderStats(); if (gateState.enabled && !gateState.unlocked) { showGateScreen(''); return; } openScreen('screen-onboarding-1'); }
+function hardReset(){ localStorage.removeItem(STORE.onboarding); localStorage.removeItem(STORE.history); localStorage.removeItem(STORE.settings); localStorage.removeItem(STORE.lang); historyLog=[]; currentLang = detectBrowserLang(); applyTranslations(); renderHistory(); renderStats(); if (gateState.enabled && !gateState.unlocked) { showGateScreen(''); return; } openScreen('screen-onboarding-1'); }
 function loadJSON(key, fallback){ try{ return JSON.parse(localStorage.getItem(key)||'null') ?? fallback; }catch{ return fallback; } }
 function formatDate(iso){ try { return new Date(iso).toLocaleString(currentLang === 'it' ? 'it-IT' : currentLang === 'es' ? 'es-ES' : 'en-US', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }); } catch { return iso; } }
 async function copyText(text){ try{ await navigator.clipboard.writeText(text); } catch { const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); } }
