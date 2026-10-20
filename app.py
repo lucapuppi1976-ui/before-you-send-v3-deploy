@@ -20,7 +20,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 ROOT = Path(__file__).resolve().parent
-STATIC_DIR = ROOT
+# Only the public/ folder is served; source, config and notes in ROOT are never exposed.
+STATIC_DIR = ROOT / 'public'
 ENV_FILE = ROOT / '.env'
 
 

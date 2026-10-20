@@ -1,4 +1,16 @@
 __pycache__/
 *.pyc
 .venv/
+.pytest_cache/
+
+# Secrets: keep only the placeholder template in git.
 .env
+.env.*
+!.env.example
+
+# Runtime data (SQLite access-code database) and logs live outside public/.
+data/
+logs/
+
+# Reports written by tools/compare_models.py.
+tools/reports/

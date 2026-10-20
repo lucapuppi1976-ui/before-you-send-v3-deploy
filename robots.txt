@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://bb1studio.com/sitemap.xml
