@@ -84,10 +84,12 @@ def fake_response(**fields: Any) -> SimpleNamespace:
 def default_reply(params: dict[str, Any]) -> SimpleNamespace:
     properties = params["output_config"]["format"]["schema"]["properties"]
     if "rewrites" in properties:
-        return text_reply(SCORE_PAYLOAD)
-    if "extracted_text" in properties:
-        return text_reply(IMAGE_PAYLOAD)
-    return text_reply(DECODE_PAYLOAD)
+        payload = SCORE_PAYLOAD
+    elif "extracted_text" in properties:
+        payload = IMAGE_PAYLOAD
+    else:
+        payload = DECODE_PAYLOAD
+    return text_reply(payload, model=params["model"])
 
 
 class FakeClaude:

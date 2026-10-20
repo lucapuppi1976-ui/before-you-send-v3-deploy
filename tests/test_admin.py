@@ -4,6 +4,7 @@ from __future__ import annotations
 import importlib.util
 import io
 import re
+import sys
 
 import pytest
 from conftest import ADMIN_TOKEN, ROOT
@@ -12,6 +13,7 @@ from backend.codes import CODE_ALPHABET, CodeStore, generate_code
 
 _spec = importlib.util.spec_from_file_location("bys_tools_codes", ROOT / "tools" / "codes.py")
 codes_cli = importlib.util.module_from_spec(_spec)
+sys.modules[_spec.name] = codes_cli
 _spec.loader.exec_module(codes_cli)
 
 LOCAL = ("127.0.0.1", 40000)
