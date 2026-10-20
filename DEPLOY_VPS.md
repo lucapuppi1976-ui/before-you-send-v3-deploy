@@ -8,7 +8,25 @@ Sulla stessa macchina girano n8n (servizio `n8n`, `127.0.0.1:5678`) e il softwar
 - non usare le porte già occupate: 5678, 5690-5691, 8090-8097, 8780;
 - il servizio BYS gira con un account locale dedicato e senza privilegi, mai come LocalSystem o Administrator.
 
-## 1. Account e cartelle
+## Chi fa cosa
+
+Sul VPS lavora anche una sessione di Claude Code con regole strette: account, permessi, chiavi, segreti e DNS li gestisce Luca. Claude prepara i comandi esatti e fa il resto solo con l'ok di Luca.
+
+| Passo | Chi |
+|---|---|
+| 1. Account `svc-bys`, sua password, cartelle e permessi | **Luca** |
+| 2. Clonare il branch, creare il venv, installare le dipendenze, copiare `.env.example` in `.env` | Claude sul VPS, con l'ok di Luca |
+| 3. Creare le chiavi Anthropic (workspace dedicato con tetto di spesa) e Groq; scrivere chiavi e segreti in `.env` | **Luca** (Claude prepara il comando che genera i segreti) |
+| 3. Primo codice di prova con `tools\codes.py` | Claude sul VPS o Luca |
+| 4. Servizio Windows con NSSM sotto l'account `svc-bys` | **Luca**, con i comandi preparati da Claude |
+| 5. Blocco Caddy: scriverlo, `caddy validate`, poi `caddy reload` | Claude sul VPS, con l'ok di Luca |
+| 6. DNS di `bys` su MisterDomain | **Luca** |
+| 7. Smoke test | Claude sul VPS |
+| Dopo il punto 7: nella scheda BYS del sito nuovo togliere «próximamente» per la voce e la nota del contatore | Claude sul VPS |
+| 8. Collegare n8n alla creazione dei codici | Claude sul VPS, quando Luca lo decide |
+| 10. Render: variabili prima di un eventuale merge su `main`, poi sospensione del servizio | **Luca** |
+
+## 1. Account e cartelle — Luca
 
 In PowerShell da amministratore:
 
@@ -30,22 +48,23 @@ icacls C:\bys\logs /inheritance:r /grant:r "Administrators:(OI)(CI)F" "SYSTEM:(O
 
 Controlla che `svc-bys` non abbia accesso alle cartelle di MT5 e di n8n (di solito stanno nei profili di altri utenti, che un utente standard non può leggere).
 
-## 2. Installazione
+## 2. Installazione — Claude sul VPS, con l'ok di Luca
 
 ```powershell
 cd C:\bys\app
-git clone https://github.com/lucapuppi1976-ui/before-you-send-v3-deploy.git .
+git clone --branch claude/bys-claude-vps https://github.com/lucapuppi1976-ui/before-you-send-v3-deploy.git .
 & "C:\Program Files\Python314\python.exe" -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 Copy-Item .env.example .env
-notepad .env
 ```
+
+Finché il branch non è unito a `main` si clona `claude/bys-claude-vps`; dopo l'unione si può passare a `main` con `git switch main`. Il repository è pubblico: per clonarlo non serve l'accesso a GitHub.
 
 Le versioni in `requirements.txt` sono fissate e si installano da wheel su Python 3.14 per Windows x64.
 
-## 3. Variabili d'ambiente
+## 3. Variabili d'ambiente — Luca
 
-Mettile in `C:\bys\app\.env`: grazie ai permessi del punto 1 lo leggono solo gli amministratori e `svc-bys`. Le variabili impostate con NSSM finiscono nel registro dei servizi, che è più esposto.
+Luca apre il file con `notepad C:\bys\app\.env` e inserisce chiavi e segreti; Claude può preparare il comando che genera `BYS_GATE_SECRET` e `BYS_ADMIN_TOKEN`, ma non li scrive nel file. Mettile in `C:\bys\app\.env`: grazie ai permessi del punto 1 lo leggono solo gli amministratori e `svc-bys`. Le variabili impostate con NSSM finiscono nel registro dei servizi, che è più esposto.
 
 | Variabile | Valore |
 |---|---|
@@ -72,7 +91,7 @@ Primo codice di prova:
 .\.venv\Scripts\python.exe tools\codes.py create --plan trial --label "test"
 ```
 
-## 4. Servizio Windows con NSSM
+## 4. Servizio Windows con NSSM — Luca, con i comandi preparati da Claude
 
 Comando da eseguire (lo lancia NSSM):
 
@@ -104,7 +123,7 @@ Se l'avvio fallisce con un errore di accesso, concedi a `svc-bys` il diritto "Ac
 
 Verifica locale: `curl.exe -s http://127.0.0.1:8110/api/health` deve rispondere `{"ok":true}`.
 
-## 5. Caddy
+## 5. Caddy — Claude sul VPS, con l'ok di Luca
 
 Aggiungi questo blocco, come nuovo sito, in `C:\caddy\Caddyfile.production` senza modificare gli altri:
 
@@ -138,7 +157,7 @@ caddy reload --config C:\caddy\Caddyfile.production --adapter caddyfile
 
 Se `validate` segnala errori non ricaricare. Non riavviare `CaddyBB1` e non riavviare `n8n`. Se nel Caddyfile l'API admin è disattivata (`admin off`), `caddy reload` non funziona: in quel caso pianifica un riavvio di `CaddyBB1` in un momento tranquillo.
 
-## 6. DNS
+## 6. DNS — Luca
 
 Nella zona `bb1studio.com`:
 
@@ -151,7 +170,7 @@ Nella zona `bb1studio.com`:
 - Se la zona ha record CAA, devono autorizzare `letsencrypt.org` (e `zerossl.com`, l'altra autorità usata da Caddy).
 - Durante il passaggio usa un TTL basso (300 s). Caddy ottiene il certificato da solo quando il DNS punta alla VPS (porte 80 e 443 già aperte per Caddy).
 
-## 7. Smoke test
+## 7. Smoke test — Claude sul VPS
 
 ```powershell
 curl.exe -s -o NUL -w "%{http_code}`n" https://bys.bb1studio.com/app.py          # 404
@@ -166,7 +185,7 @@ curl.exe -sI https://bys.bb1studio.com/ | findstr /i "content-security-policy st
 
 Codice corretto: apri `https://bys.bb1studio.com` in una finestra privata, inserisci il codice creato al punto 3, premi "Prova subito" e controlla che arrivi l'analisi e che "analisi rimaste" scenda di uno.
 
-## 8. Creare codici da n8n
+## 8. Creare codici da n8n — Claude sul VPS, quando Luca lo decide
 
 n8n gira sulla stessa macchina, quindi chiama BYS direttamente (non tramite `https://bys.bb1studio.com`, dove `/admin` è bloccato):
 
@@ -199,7 +218,7 @@ Backup del database (si può fare con il servizio acceso):
 
 Revocare un codice: `tools\codes.py revoke ID`. Disconnettere tutti: cambia `BYS_GATE_EPOCH` e riavvia il servizio.
 
-## 10. Passaggio da Render
+## 10. Passaggio da Render — Luca
 
 - `render.yaml` ha `autoDeploy: true`: **ogni merge su `main` fa un deploy su Render**. Prima del merge imposta su Render `ANTHROPIC_API_KEY`, `BYS_GATE_SECRET` (almeno 32 caratteri, altrimenti la nuova versione non parte), `BYS_GATE_EPOCH` ed eventualmente `GROQ_API_KEY`; togli `OPENAI_API_KEY` e `BYS_PUBLIC_DEPLOY`.
 - Su Render il disco non è persistente: il database dei codici si azzera a ogni deploy. Finché il DNS punta a Render usa `BYS_ACCESS_CODE`.
