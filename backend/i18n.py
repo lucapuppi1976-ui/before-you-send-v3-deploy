@@ -131,7 +131,7 @@ def text(lang: str, key: str, **values: Any) -> Any:
 
 def label_for_score(score: int, lang: str) -> str:
     labels = TEXTS[canonical_lang(lang)]["score_labels"]
-    for label, minimum in zip(labels, SCORE_THRESHOLDS):
+    for label, minimum in zip(labels, SCORE_THRESHOLDS, strict=True):
         if score >= minimum:
             return label
     return labels[-1]

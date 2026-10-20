@@ -25,10 +25,11 @@ from .i18n import canonical_lang, label_for_score, text
 log = logging.getLogger("bys.analysis")
 
 # Server-side refusal fallback. When a safety classifier declines a request, the API can
-# retry it on another model inside the same call. These models support the "default"
-# form (Anthropic picks the fallback by refusal category) on the Claude API; it needs this
-# exact beta header. Claude Haiku 5.5 has no server-side fallback and other models are not
-# covered, so requests to them go to the regular endpoint without the parameter.
+# retry it on another model inside the same call. The models in FALLBACK_DEFAULT_MODELS are
+# documented to support the "default" form (Anthropic picks the fallback by refusal
+# category) on the Claude API, which needs this exact beta header. Any other model either
+# has no server-side fallback or is not documented for it, so it goes to the regular
+# endpoint without the parameter.
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
 FALLBACK_DEFAULT_MODELS = frozenset({"claude-sonnet-5-5", "claude-opus-5-5", "claude-opus-5", "claude-fable-5-1"})
 
@@ -331,7 +332,7 @@ class Analyzer:
         self._lock = threading.Lock()
 
     @classmethod
-    def from_settings(cls, settings: Settings, client: Any = None) -> "Analyzer":
+    def from_settings(cls, settings: Settings, client: Any = None) -> Analyzer:
         return cls(
             api_key=settings.anthropic_api_key,
             model=settings.model,

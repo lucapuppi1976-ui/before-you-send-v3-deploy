@@ -8,8 +8,8 @@ This calls the paid Anthropic API. It prints an estimated cost first and only ru
 with --yes. It needs ANTHROPIC_API_KEY (environment or the project's .env file).
 
   python tools/compare_models.py                    # estimate only
-  python tools/compare_models.py --yes              # run all samples on the default models
-  python tools/compare_models.py --yes --models claude-sonnet-5-5 claude-haiku-5-5 --limit 6
+  python tools/compare_models.py --yes              # run all samples on DEFAULT_MODELS
+  python tools/compare_models.py --yes --models MODEL_ID MODEL_ID --limit 6
 """
 from __future__ import annotations
 
@@ -35,8 +35,9 @@ from backend.config import EFFORT_LEVELS, ConfigError, load_env_file, load_setti
 DEFAULT_MODELS = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"]
 
 # USD per million tokens (input, output), standard Claude API rates as listed in the
-# Claude API reference used for this project (cached 2026-10-06). Claude Haiku 5.5 is
-# listed at the rate for prompts up to 100K tokens, which covers every BYS request.
+# Claude API reference used for this project (cached 2026-10-06). Where a model has a
+# separate rate for very long prompts, the rate for prompts up to 100K tokens is used,
+# which covers every BYS request.
 PRICES_PER_MTOK = {
     "claude-fable-5-1": (10.00, 50.00),
     "claude-opus-5-5": (4.00, 20.00),

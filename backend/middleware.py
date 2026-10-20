@@ -121,7 +121,7 @@ class GuardMiddleware:
                 await _reject(scope, receive, send, 404, "Not Found")
                 return
             supplied = (_header(scope, b"authorization") or "").encode("utf-8")
-            if not hmac.compare_digest(supplied, f"Bearer {self.admin_token}".encode("utf-8")):
+            if not hmac.compare_digest(supplied, f"Bearer {self.admin_token}".encode()):
                 await _reject(scope, receive, send, 401, "Unauthorized", {"WWW-Authenticate": "Bearer"})
                 return
         await self.app(scope, receive, send)

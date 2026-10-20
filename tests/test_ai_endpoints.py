@@ -54,7 +54,7 @@ def test_claude_request_uses_structured_output_effort_and_the_fallback_branch(un
     unlocked.post("/api/decode/text", json={"text": "Ci vediamo domani?", "lang": "en"})
     call = claude.last
     assert call["model"] == "claude-sonnet-5-5"
-    assert call["beta"] is True  # Sonnet 5.5 supports the server-side "default" fallback
+    assert call["beta"] is True  # the default model is in FALLBACK_DEFAULT_MODELS
     assert call["betas"] == [FALLBACK_BETA] == ["server-side-fallback-2026-07-01"]
     assert call["fallbacks"] == "default"
     assert "thinking" not in call and "tool_choice" not in call and "temperature" not in call
