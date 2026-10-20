@@ -15,16 +15,18 @@ pip install -r requirements.txt || goto :error
 
 if not exist ".env" (
   echo [4/4] Creo .env da .env.example ...
-  copy .env.example .env >nul
+  copy .env.example .env >nul || goto :error
+  .venv\Scripts\python.exe -c "import secrets; print('BYS_GATE_SECRET=' + secrets.token_urlsafe(48))" >> .env || goto :error
   echo.
-  echo HO CREATO IL FILE .env
-  echo Aprilo adesso e incolla la tua OPENAI_API_KEY.
-  echo Poi riesegui questo file.
+  echo HO CREATO IL FILE .env con un BYS_GATE_SECRET casuale.
+  echo Aprilo adesso e incolla la tua ANTHROPIC_API_KEY, e GROQ_API_KEY se vuoi i vocali.
+  echo Poi crea un codice di accesso con:  .venv\Scripts\python.exe tools\codes.py create
+  echo e riesegui questo file.
   pause
   exit /b 0
 )
 
-echo [4/4] Avvio il server...
+echo [4/4] Avvio il server su http://127.0.0.1:8110 ...
 .venv\Scripts\python.exe run_local.py
 exit /b 0
 

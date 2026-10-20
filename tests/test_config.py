@@ -119,3 +119,22 @@ def test_server_process_refuses_to_start_with_a_clear_message(tmp_path):
 def test_server_process_starts_with_a_long_secret(tmp_path):
     result = _run_import({"BYS_GATE_SECRET": SECRET}, tmp_path)
     assert result.returncode == 0, result.stderr
+
+
+def test_env_example_has_placeholders_only_and_works_with_an_appended_secret(tmp_path, monkeypatch):
+    template = (ROOT / ".env.example").read_text(encoding="utf-8")
+    assert "sk-ant" not in template and "gsk_" not in template
+    assert "BYS_MODEL=claude-sonnet-5-5" in template
+    env_file = tmp_path / ".env"
+    env_file.write_text(template + f"BYS_GATE_SECRET={SECRET}\n", encoding="utf-8")  # what launch_windows.bat does
+    for key in [key for key in os.environ if key.startswith(("BYS_", "ANTHROPIC_", "GROQ_"))]:
+        monkeypatch.delenv(key)
+    from backend.config import load_env_file
+
+    load_env_file(env_file)
+    settings = load_settings()
+    for key in [key for key in os.environ if key.startswith(("BYS_", "ANTHROPIC_", "GROQ_"))]:
+        monkeypatch.delenv(key)  # undo what the .env file loaded
+    assert settings.gate_secret == SECRET
+    assert settings.model == "claude-sonnet-5-5" and settings.admin_token == "" and settings.access_code == ""
+    assert validate_settings(settings)  # starts, with warnings about the missing API keys

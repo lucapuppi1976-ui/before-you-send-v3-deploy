@@ -1,30 +1,17 @@
+"""Run Before You Send on this computer only: http://127.0.0.1:8110 (set BYS_PORT to change)."""
 from __future__ import annotations
 
 import os
-import socket
 import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-PORT = int(os.getenv('BYS_PORT', '8000'))
+HOST = "127.0.0.1"  # local only: the server is never exposed to the network
+PORT = int(os.getenv("BYS_PORT", "8110"))
 
-
-def local_ip() -> str:
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        s.connect(('8.8.8.8', 80))
-        return s.getsockname()[0]
-    except OSError:
-        return '127.0.0.1'
-    finally:
-        s.close()
-
-
-if __name__ == '__main__':
-    ip = local_ip()
-    print('\nBefore You Send — Live AI')
-    print(f'Local:   http://127.0.0.1:{PORT}')
-    print(f'Phone:   http://{ip}:{PORT}')
-    print('Apri il link Phone dal telefono sulla stessa Wi‑Fi.\n')
-    subprocess.run([sys.executable, '-m', 'uvicorn', 'app:app', '--host', '0.0.0.0', '--port', str(PORT)], cwd=str(ROOT), check=False)
+if __name__ == "__main__":
+    print("\nBefore You Send")
+    print(f"Locale: http://{HOST}:{PORT}\n")
+    command = [sys.executable, "-m", "uvicorn", "app:app", "--host", HOST, "--port", str(PORT)]
+    raise SystemExit(subprocess.run(command, cwd=str(ROOT), check=False).returncode)

@@ -1,24 +1,33 @@
+# Render deploy, kept working while BYS moves to the Windows VPS.
+# autoDeploy is on: merging into main deploys to Render automatically.
+# Render's disk is ephemeral, so the SQLite access-code database is wiped on every deploy:
+# rely on BYS_ACCESS_CODE there, or point DNS to the VPS before handing out personal codes.
+# Proxy headers are trusted from any address because only Render's proxy reaches the service.
 services:
   - type: web
     name: bys-v3-public
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips "*" --workers 1
     healthCheckPath: /api/health
     autoDeploy: true
     envVars:
-      - key: OPENAI_API_KEY
+      - key: ANTHROPIC_API_KEY
         sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: BYS_MODEL
+        value: claude-sonnet-5-5
       - key: BYS_ACCESS_CODE
         sync: false
       - key: BYS_GATE_SECRET
         sync: false
+      - key: BYS_GATE_EPOCH
+        value: "1"
       - key: BYS_GATE_ENABLED
         value: "true"
       - key: BYS_ACCESS_PAGE_URL
         value: "https://bb1studio.com/before-you-send/access/"
-      - key: BYS_PUBLIC_DEPLOY
-        value: "true"
       - key: PYTHON_VERSION
         value: "3.14.3"
