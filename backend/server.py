@@ -32,7 +32,7 @@ from .gate import SHARED_CODE_ID, Access, Gate
 from .i18n import SUPPORTED_LANGS, canonical_lang, text
 from .middleware import BodySizeLimitMiddleware, GuardMiddleware, SecurityHeadersMiddleware
 from .ratelimit import DAY, HOUR, MINUTE, RateLimiter
-from .transcription import TranscriptionBusy, TranscriptionEmpty, TranscriptionError
+from .transcription import TranscriptionBusy, TranscriptionEmpty, TranscriptionError, TranscriptionTooLong
 
 log = logging.getLogger("bys")
 
@@ -140,6 +140,8 @@ def create_app(settings: Optional[Settings] = None, *, public_dir: Path = PUBLIC
             return api_error(503, "unavailable", text(lang, "error_ai_unavailable"))
         if isinstance(exc, TranscriptionEmpty):
             return api_error(422, "empty_audio", text(lang, "error_transcription_empty"))
+        if isinstance(exc, TranscriptionTooLong):
+            return api_error(422, "voice_too_long", text(lang, "error_voice_too_long", max=MAX_TEXT_CHARS))
         if isinstance(exc, TranscriptionError):
             return api_error(502, "transcription_failed", text(lang, "error_transcription"))
         return api_error(502, "analysis_failed", text(lang, "error_generic"))
@@ -332,6 +334,9 @@ def create_app(settings: Optional[Settings] = None, *, public_dir: Path = PUBLIC
                 model=settings.transcribe_model,
                 timeout_seconds=settings.transcribe_timeout_seconds,
             )
+            # Same limit as typed text: a very long recording is not sent to Claude (the unit is refunded).
+            if len(heard) > MAX_TEXT_CHARS:
+                raise TranscriptionTooLong("transcript too long")
             result, _ = analyzer.decode_text(heard, lang)
             result.update(source="voice", input=heard, lang=lang, transcript=heard)
             return result

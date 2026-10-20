@@ -147,7 +147,7 @@ Nella zona `bb1studio.com`:
 | A | `bys` | IPv4 pubblico della VPS |
 | AAAA | `bys` | IPv6 della VPS, solo se la VPS lo ha e Caddy è raggiungibile in IPv6 |
 
-- Elimina il vecchio record di `bys` che punta a Render (un CNAME verso `bys-v3-public.onrender.com`): un nome non può avere sia CNAME sia A.
+- Elimina i vecchi record di `bys` che puntano a Render: oggi (20/10/2026) sono record A verso `216.24.57.16` e `216.24.57.18`; se invece trovi un CNAME verso `bys-v3-public.onrender.com`, eliminalo, perché un nome non può avere sia CNAME sia A.
 - Se la zona ha record CAA, devono autorizzare `letsencrypt.org` (e `zerossl.com`, l'altra autorità usata da Caddy).
 - Durante il passaggio usa un TTL basso (300 s). Caddy ottiene il certificato da solo quando il DNS punta alla VPS (porte 80 e 443 già aperte per Caddy).
 

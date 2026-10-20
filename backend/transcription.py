@@ -60,6 +60,10 @@ class TranscriptionEmpty(TranscriptionError):
     """Groq answered, but the transcript is empty."""
 
 
+class TranscriptionTooLong(TranscriptionError):
+    """The transcript is longer than the text limit, so it is not sent for analysis."""
+
+
 def resolve_audio_upload(filename: Optional[str], content_type: Optional[str]) -> Optional[tuple[str, str]]:
     """Return (upload filename, audio type) for an audio upload, or None if it is not audio.
 

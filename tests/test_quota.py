@@ -91,6 +91,22 @@ def test_groq_failure_refunds_the_unit(make_client, groq):
     assert _used(client, code_id) == 0
 
 
+def test_an_overlong_transcript_is_not_analyzed_and_refunds_the_unit(make_client, claude, groq):
+    client = make_client()
+    _, code_id = unlock(client)
+    groq.payload = {"text": "parola " * 1000}  # 7000 characters, over the 6000 limit for typed text
+    calls_before = len(claude.calls)
+    response = client.post(
+        "/api/decode/audio", files={"file": ("lungo.ogg", OGG_BYTES, "audio/ogg")}, data={"lang": "it"}
+    )
+    assert response.status_code == 422
+    detail = response.json()["detail"]
+    assert detail["code"] == "voice_too_long"
+    assert "6000" in detail["message"]
+    assert len(claude.calls) == calls_before  # the transcript never reached Claude
+    assert _used(client, code_id) == 0
+
+
 def test_refusal_refunds_the_unit(make_client, claude):
     client = make_client()
     _, code_id = unlock(client)
