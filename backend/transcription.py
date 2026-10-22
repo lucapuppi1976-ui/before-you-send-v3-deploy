@@ -6,6 +6,7 @@ error type are logged.
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from pathlib import PurePath
 from typing import Optional
 
@@ -42,6 +43,43 @@ _TYPE_EXTENSIONS = {
     "audio/wave": ".wav",
     "audio/webm": ".webm",
 }
+
+
+# Whisper names the detected language in English; the app works with ISO 639-1 codes.
+_LANGUAGE_CODES = {
+    "italian": "it", "english": "en", "spanish": "es", "french": "fr", "german": "de", "russian": "ru",
+    "portuguese": "pt", "catalan": "ca", "galician": "gl", "dutch": "nl", "romanian": "ro", "polish": "pl",
+}
+# How much more confident (mean log-probability) the pass in the app language must be to replace the automatic one.
+SECOND_PASS_MARGIN = 0.02
+
+
+@dataclass(frozen=True)
+class Transcript:
+    text: str
+    language: Optional[str]  # ISO 639-1 code of the language Whisper used, when known
+    confidence: Optional[float]  # mean avg_logprob of the segments, weighted by duration (higher is better)
+
+
+def _language_code(raw: object) -> Optional[str]:
+    name = str(raw or "").strip().lower()
+    if len(name) == 2 and name.isalpha():
+        return name
+    return _LANGUAGE_CODES.get(name)
+
+
+def _confidence(segments: object) -> Optional[float]:
+    if not isinstance(segments, list):
+        return None
+    total = weighted = 0.0
+    for segment in segments:
+        try:
+            duration = max(float(segment["end"]) - float(segment["start"]), 0.01)
+            weighted += float(segment["avg_logprob"]) * duration
+        except (KeyError, TypeError, ValueError):
+            continue
+        total += duration
+    return weighted / total if total else None
 
 
 class TranscriptionError(Exception):
@@ -100,8 +138,9 @@ def transcribe(
     model: str,
     timeout_seconds: float,
     language: Optional[str] = None,
-) -> str:
-    data = {"model": model, "response_format": "json"}
+) -> Transcript:
+    # verbose_json also returns the language Whisper used and the confidence of each segment.
+    data = {"model": model, "response_format": "verbose_json"}
     if language:
         data["language"] = language
     try:
@@ -134,5 +173,37 @@ def transcribe(
     if not transcript:
         log.info("groq transcription empty req=%s", request_id)
         raise TranscriptionEmpty("empty transcript")
-    log.info("groq transcription ok model=%s req=%s bytes=%d", model, request_id, len(audio))
-    return transcript
+    result = Transcript(transcript, _language_code(payload.get("language")) or language, _confidence(payload.get("segments")))
+    log.info(
+        "groq transcription ok model=%s req=%s bytes=%d language=%s confidence=%s",
+        model, request_id, len(audio), result.language, None if result.confidence is None else round(result.confidence, 3),
+    )
+    return result
+
+
+def transcribe_best(
+    audio: bytes,
+    *,
+    filename: str,
+    content_type: str,
+    api_key: str,
+    model: str,
+    timeout_seconds: float,
+    ui_lang: str,
+) -> Transcript:
+    """Automatic language first: a received voice note is not necessarily in the app language. When Whisper picks
+    another language, a second pass in the app language, and the more confident transcript wins: very short
+    notes can fool the detection between close languages (an Italian «No tranquilla, vediamo più avanti» came
+    back as Spanish). If the second pass fails, the first transcript stays."""
+    request = dict(filename=filename, content_type=content_type, api_key=api_key, model=model, timeout_seconds=timeout_seconds)
+    first = transcribe(audio, **request)
+    if first.language == ui_lang:
+        return first
+    try:
+        second = transcribe(audio, **request, language=ui_lang)
+    except TranscriptionError:
+        return first
+    if second.confidence is not None and (first.confidence is None or second.confidence > first.confidence + SECOND_PASS_MARGIN):
+        log.info("groq transcription: pass in the app language kept (%s instead of %s)", ui_lang, first.language)
+        return second
+    return first

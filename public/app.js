@@ -44,6 +44,10 @@ const samples = {
   screenshotText: 'Uf, esta semana voy fatal de trabajo… No te preocupes, ya lo vemos más adelante :)',
   sendText: 'Vale, pues ya me dirás tú, porque nunca entiendo lo que quieres',
 };
+// Recording for the voice demo, if any: a 16 kHz WAV plays in every browser. None for now, so the demo fills in
+// the transcript of a Spanish voice note.
+const DEMO_VOICE = '';
+let demoVoice = null; // the demo recording as a File, sent like an upload while the demo is loaded
 
 init();
 
@@ -350,21 +354,39 @@ function bindDecode() {
     await runDecodeText(text);
   });
 
-  // Demo: the transcript of a Spanish voice note. The old demo recording was in Italian; a Spanish one can come
-  // back here when there is one. A file chosen before is cleared, so the demo analyzes the transcript.
-  $('#useDemoVoice')?.addEventListener('click', () => {
-    $('#voiceTranscript').value = samples.voiceTranscript;
+  // Demo: with a recording (DEMO_VOICE) and transcription on, the recording is sent like an upload, so the demo
+  // shows the real transcription; otherwise the transcript of the demo voice note is filled in. A file chosen
+  // before is cleared.
+  $('#useDemoVoice')?.addEventListener('click', async () => {
     const upload = $('#voiceUpload');
     if (upload) upload.value = '';
     const player = $('#voicePlayer');
     player.pause();
-    player.removeAttribute('src');
-    player.classList.add('hidden');
+    $('#voiceTranscript').value = '';
+    demoVoice = null;
+    if (DEMO_VOICE && capabilities.voice) {
+      try {
+        const res = await fetch(DEMO_VOICE);
+        if (!res.ok) throw new Error(String(res.status));
+        demoVoice = new File([await res.blob()], DEMO_VOICE.split('/').pop(), { type: 'audio/wav' });
+      } catch {
+        demoVoice = null;
+      }
+    }
+    if (demoVoice) {
+      player.src = DEMO_VOICE;
+      player.classList.remove('hidden');
+    } else {
+      player.removeAttribute('src');
+      player.classList.add('hidden');
+      $('#voiceTranscript').value = samples.voiceTranscript;
+    }
   });
 
   $('#voiceUpload')?.addEventListener('change', (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    demoVoice = null;
     const player = $('#voicePlayer');
     player.src = URL.createObjectURL(file);
     player.classList.remove('hidden');
@@ -598,7 +620,7 @@ async function runDecodeVoice() {
   showLoadingDecode(t('results.loading.voice'));
   try {
     const form = new FormData();
-    const file = capabilities.voice ? $('#voiceUpload')?.files?.[0] : null;
+    const file = capabilities.voice ? ($('#voiceUpload')?.files?.[0] || demoVoice) : null;
     const transcript = $('#voiceTranscript')?.value?.trim();
     if (file) form.append('file', file);
     if (transcript) form.append('transcript', transcript);

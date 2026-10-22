@@ -10,7 +10,7 @@ from backend.transcription import GROQ_TRANSCRIPTION_URL, TranscriptionEmpty, Tr
 
 
 def test_groq_request_is_built_correctly_and_the_transcript_is_analyzed(unlocked, claude, groq):
-    groq.payload = {"text": "  Ciao, sentiamoci la settimana prossima.  "}
+    groq.payload = {"text": "  Ciao, sentiamoci la settimana prossima.  ", "language": "italian"}
     response = unlocked.post(
         "/api/decode/audio", files={"file": ("Nota vocale di Maria.ogg", OGG_BYTES, "audio/ogg")}, data={"lang": "it"}
     )
@@ -18,7 +18,7 @@ def test_groq_request_is_built_correctly_and_the_transcript_is_analyzed(unlocked
     (call,) = groq.calls
     assert call["url"] == GROQ_TRANSCRIPTION_URL == "https://api.groq.com/openai/v1/audio/transcriptions"
     assert call["headers"] == {"Authorization": "Bearer test-groq-key"}
-    assert call["data"] == {"model": "whisper-large-v3-turbo", "response_format": "json"}
+    assert call["data"] == {"model": "whisper-large-v3-turbo", "response_format": "verbose_json"}
     assert call["files"] == {"file": ("voice.ogg", OGG_BYTES, "audio/ogg")}  # the user's filename is not forwarded
     assert call["timeout"] == (10, 60.0)
     assert "<message>\nCiao, sentiamoci la settimana prossima.\n</message>" in claude.last["messages"][0]["content"]
@@ -132,7 +132,7 @@ def test_transcribe_sends_the_optional_language_only_when_given(groq):
         OGG_BYTES, filename="voice.ogg", content_type="audio/ogg", api_key="k", model="m", timeout_seconds=5, language="es"
     )
     transcription.transcribe(OGG_BYTES, filename="voice.ogg", content_type="audio/ogg", api_key="k", model="m", timeout_seconds=5)
-    assert groq.calls[0]["data"] == {"model": "m", "response_format": "json", "language": "es"}
+    assert groq.calls[0]["data"] == {"model": "m", "response_format": "verbose_json", "language": "es"}
     assert "language" not in groq.calls[1]["data"]
 
 
@@ -143,3 +143,42 @@ def test_transcribe_rejects_bad_responses(groq):
     groq.payload = {"text": ""}
     with pytest.raises(TranscriptionEmpty):
         transcription.transcribe(OGG_BYTES, filename="v.ogg", content_type="audio/ogg", api_key="k", model="m", timeout_seconds=5)
+
+
+def _segment(logprob):
+    return [{"start": 0.0, "end": 2.0, "avg_logprob": logprob}]
+
+
+def test_detected_language_and_confidence_are_read(groq):
+    groq.payload = {"text": "Hola", "language": "Spanish", "segments": [{"start": 0, "end": 1, "avg_logprob": -0.4}, {"start": 1, "end": 4, "avg_logprob": -0.2}]}
+    result = transcription.transcribe(OGG_BYTES, filename="v.ogg", content_type="audio/ogg", api_key="k", model="m", timeout_seconds=5)
+    assert result.text == "Hola" and result.language == "es" and abs(result.confidence - (-0.25)) < 1e-9
+
+
+def test_no_second_pass_when_the_detected_language_is_the_app_language(unlocked, claude, groq):
+    groq.payload = {"text": "Ciao, a domani.", "language": "Italian", "segments": _segment(-0.2)}
+    unlocked.post("/api/decode/audio", files={"file": ("v.ogg", OGG_BYTES, "audio/ogg")}, data={"lang": "it"})
+    assert len(groq.calls) == 1 and "language" not in groq.calls[0]["data"]
+
+
+def test_a_more_confident_pass_in_the_app_language_wins(unlocked, claude, groq):
+    # A very short Italian note detected as Spanish: the pass in Italian is far more confident.
+    groq.payloads = [
+        {"text": "No tranquila, veamos más adelante.", "language": "Spanish", "segments": _segment(-0.307)},
+        {"text": "No tranquilla, vediamo più avanti.", "language": "Italian", "segments": _segment(-0.072)},
+    ]
+    body = unlocked.post("/api/decode/audio", files={"file": ("v.ogg", OGG_BYTES, "audio/ogg")}, data={"lang": "it"}).json()
+    assert [call["data"].get("language") for call in groq.calls] == [None, "it"]
+    assert body["transcript"] == "No tranquilla, vediamo più avanti."
+
+
+@pytest.mark.parametrize("second", [
+    {"text": "Hi, it's Sam.", "language": "Spanish", "segments": _segment(-0.255)},  # forced language, worse
+    {"text": "Hi, it's Sam!", "language": "Spanish", "segments": _segment(-0.04)},   # better, but within the margin
+    ValueError("not json"),                                                            # the second pass fails
+])
+def test_the_automatic_transcript_stays_otherwise(unlocked, claude, groq, second):
+    groq.payloads = [{"text": "Hi, it's Sam.", "language": "English", "segments": _segment(-0.055)}, second]
+    body = unlocked.post("/api/decode/audio", files={"file": ("v.ogg", OGG_BYTES, "audio/ogg")}, data={"lang": "es"}).json()
+    assert len(groq.calls) == 2 and groq.calls[1]["data"]["language"] == "es"
+    assert body["transcript"] == "Hi, it's Sam."

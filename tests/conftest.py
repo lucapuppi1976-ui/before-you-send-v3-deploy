@@ -131,14 +131,19 @@ class FakeGroq:
     def __init__(self) -> None:
         self.calls: list[dict[str, Any]] = []
         self.status_code = 200
-        self.payload: Any = {"text": "No tranquilla, vediamo più avanti :)"}
+        self.payload: Any = {
+            "text": "No tranquilla, vediamo più avanti :)",
+            "language": "Italian",
+            "segments": [{"start": 0.0, "end": 2.0, "avg_logprob": -0.1}],
+        }
+        self.payloads: list[Any] = []  # one per call, in order, before falling back to payload
         self.error: Optional[BaseException] = None
 
     def post(self, url: str, **kwargs: Any) -> SimpleNamespace:
         self.calls.append({"url": url, **kwargs})
         if self.error is not None:
             raise self.error
-        payload = self.payload
+        payload = self.payloads.pop(0) if self.payloads else self.payload
 
         def as_json() -> Any:
             if isinstance(payload, Exception):

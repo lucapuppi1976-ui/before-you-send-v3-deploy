@@ -325,15 +325,17 @@ def create_app(settings: Optional[Settings] = None, *, public_dir: Path = PUBLIC
         upload_name, media_type = upload
 
         def work() -> dict[str, Any]:
-            # No language hint: a received voice note is not necessarily in the UI language.
-            heard = transcription.transcribe(
+            # Automatic language first (a received voice note is not necessarily in the UI language); if Whisper
+            # picks another language, a second pass in the UI language keeps the more confident transcript.
+            heard = transcription.transcribe_best(
                 audio,
                 filename=upload_name,
                 content_type=media_type,
                 api_key=settings.groq_api_key,
                 model=settings.transcribe_model,
                 timeout_seconds=settings.transcribe_timeout_seconds,
-            )
+                ui_lang=lang,
+            ).text
             # Same limit as typed text: a very long recording is not sent to Claude (the unit is refunded).
             if len(heard) > MAX_TEXT_CHARS:
                 raise TranscriptionTooLong("transcript too long")

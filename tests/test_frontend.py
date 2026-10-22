@@ -70,6 +70,13 @@ def test_access_page_comes_from_the_server():
     assert "gateState.accessPage" in APP_JS
 
 
+def test_the_demo_recording_if_any_exists_and_is_not_precached():
+    demo = re.search(r"const DEMO_VOICE = '([^']*)'", APP_JS).group(1)
+    if demo:
+        assert (PUBLIC / demo).exists()
+        assert demo.rsplit("/", 1)[-1] not in SW_JS
+
+
 def test_service_worker_rules():
     assert "voice_note_demo_27s.wav" not in SW_JS
     assert "bys-v3-public-gate-v1-2" not in SW_JS
