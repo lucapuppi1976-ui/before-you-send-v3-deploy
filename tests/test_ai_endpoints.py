@@ -109,6 +109,33 @@ def test_unknown_language_falls_back_to_italian(unlocked, claude):
     assert "italiano" in claude.last["system"]
 
 
+@pytest.mark.parametrize(
+    "lang,rule",
+    [
+        ("it", "nella stessa lingua del messaggio ricevuto"),
+        ("en", "in the same language as the received message"),
+        ("es", "en el mismo idioma que el mensaje recibido"),
+    ],
+)
+def test_ready_replies_follow_the_language_of_the_message(unlocked, claude, lang, rule):
+    # The reading is in the app language; the replies go to the sender, so they use the sender's language.
+    unlocked.post("/api/decode/text", json={"text": "See you on Saturday?", "lang": lang})
+    assert rule in claude.last["system"]
+
+
+def test_screenshot_replies_follow_the_language_of_the_chat(unlocked, claude):
+    unlocked.post("/api/decode/image", files={"file": ("chat.png", PNG_BYTES, "image/png")}, data={"lang": "it"})
+    assert "nella stessa lingua del messaggio ricevuto" in claude.last["system"]
+
+
+@pytest.mark.parametrize(
+    "lang,rule", [("it", "nella sua stessa lingua"), ("en", "in its own language"), ("es", "en su mismo idioma")]
+)
+def test_rewrites_keep_the_language_of_the_draft(unlocked, claude, lang, rule):
+    unlocked.post("/api/score/text", json={"text": "See you on Saturday?", "lang": lang})
+    assert rule in claude.last["system"]
+
+
 def test_score_text_returns_the_shape_app_js_expects(unlocked, claude):
     response = unlocked.post("/api/score/text", json={"text": "Ok allora fammi sapere tu", "lang": "it"})
     assert response.status_code == 200
