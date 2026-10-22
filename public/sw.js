@@ -2,7 +2,7 @@
 // the offline fallback; cache first only for icons and images. /api/ and /admin/ are never
 // cached, and neither is any non-OK response. The 2.6 MB demo voice note is not precached:
 // the audio element loads it on demand.
-const CACHE = 'bys-v4-claude-vps-1';
+const CACHE = 'bys-v4-claude-vps-2';
 const PRECACHE = [
   './',
   './index.html',
@@ -12,6 +12,9 @@ const PRECACHE = [
   './locales/it.json',
   './locales/en.json',
   './locales/es.json',
+  './locales/fr.json',
+  './locales/de.json',
+  './locales/ru.json',
   './assets/icon-192.png',
   './assets/icon-512.png',
   './assets/chat_demo_final.png',

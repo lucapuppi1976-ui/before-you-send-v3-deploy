@@ -10,7 +10,7 @@ import pytest
 from conftest import ROOT
 
 PUBLIC = ROOT / "public"
-LOCALES = {lang: json.loads((PUBLIC / "locales" / f"{lang}.json").read_text(encoding="utf-8")) for lang in ("it", "en", "es")}
+LOCALES = {lang: json.loads((PUBLIC / "locales" / f"{lang}.json").read_text(encoding="utf-8")) for lang in ("it", "en", "es", "fr", "de", "ru")}
 INDEX = (PUBLIC / "index.html").read_text(encoding="utf-8")
 APP_JS = (PUBLIC / "app.js").read_text(encoding="utf-8")
 SW_JS = (PUBLIC / "sw.js").read_text(encoding="utf-8")
@@ -32,7 +32,7 @@ def test_index_has_no_inline_script_or_handlers():
 
 def test_locales_have_the_same_keys():
     keys = {lang: set(data) for lang, data in LOCALES.items()}
-    assert keys["it"] == keys["en"] == keys["es"]
+    assert all(k == keys["it"] for k in keys.values())
 
 
 def test_names_blur_claim_is_gone():
@@ -56,6 +56,13 @@ def test_every_translation_key_used_by_the_page_exists():
     for lang, data in LOCALES.items():
         missing = sorted(key for key in used if key not in data)
         assert not missing, (lang, missing)
+
+
+def test_the_email_link_opens_the_app_unlocked():
+    # #code=…&lang=… from the code email: read once, removed from the address bar, never sent to the server.
+    assert "new URLSearchParams(location.hash.slice(1))" in APP_JS
+    assert "history.replaceState(null, '', location.pathname + location.search)" in APP_JS
+    assert re.search(r'id="gateCodeInput"[^>]*type="text"', INDEX)
 
 
 def test_access_page_comes_from_the_server():

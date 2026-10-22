@@ -97,14 +97,17 @@ def test_other_supported_models_get_the_default_fallback(make_client, claude, mo
     assert claude.last["output_config"]["effort"] == "medium"
 
 
-@pytest.mark.parametrize("lang,word", [("it", "italiano"), ("en", "English"), ("es", "español")])
+@pytest.mark.parametrize(
+    "lang,word",
+    [("it", "italiano"), ("en", "English"), ("es", "español"), ("fr", "français"), ("de", "Deutsch"), ("ru", "русском")],
+)
 def test_prompts_follow_the_ui_language(unlocked, claude, lang, word):
     unlocked.post("/api/decode/text", json={"text": "ciao", "lang": lang})
     assert word in claude.last["system"]
 
 
 def test_unknown_language_falls_back_to_italian(unlocked, claude):
-    body = unlocked.post("/api/decode/text", json={"text": "ciao", "lang": "de"}).json()
+    body = unlocked.post("/api/decode/text", json={"text": "ciao", "lang": "pt"}).json()
     assert body["lang"] == "it"
     assert "italiano" in claude.last["system"]
 
@@ -115,6 +118,9 @@ def test_unknown_language_falls_back_to_italian(unlocked, claude):
         ("it", "nella stessa lingua del messaggio ricevuto"),
         ("en", "in the same language as the received message"),
         ("es", "en el mismo idioma que el mensaje recibido"),
+        ("fr", "dans la même langue que le message reçu"),
+        ("de", "in derselben Sprache wie die erhaltene Nachricht"),
+        ("ru", "на том же языке, что и полученное сообщение"),
     ],
 )
 def test_ready_replies_follow_the_language_of_the_message(unlocked, claude, lang, rule):
@@ -129,7 +135,15 @@ def test_screenshot_replies_follow_the_language_of_the_chat(unlocked, claude):
 
 
 @pytest.mark.parametrize(
-    "lang,rule", [("it", "nella sua stessa lingua"), ("en", "in its own language"), ("es", "en su mismo idioma")]
+    "lang,rule",
+    [
+        ("it", "nella sua stessa lingua"),
+        ("en", "in its own language"),
+        ("es", "en su mismo idioma"),
+        ("fr", "dans sa propre langue"),
+        ("de", "in ihrer eigenen Sprache"),
+        ("ru", "на его собственном языке"),
+    ],
 )
 def test_rewrites_keep_the_language_of_the_draft(unlocked, claude, lang, rule):
     unlocked.post("/api/score/text", json={"text": "See you on Saturday?", "lang": lang})

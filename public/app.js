@@ -9,7 +9,11 @@ const STORE = {
   lang: 'bys_lang_liveai_v2',
 };
 
-const DEFAULT_ACCESS_PAGE = 'https://bb1studio.com/before-you-send/access/';
+const DEFAULT_ACCESS_PAGE = 'https://bb1studio.com/before-you-send/';
+const CONTACT_EMAIL = 'hola@bb1studio.com';
+// Languages of the app: the same as the site (bb1studio.com).
+const LANGS = ['it', 'en', 'es', 'fr', 'de', 'ru'];
+const DATE_LOCALES = { it: 'it-IT', en: 'en-US', es: 'es-ES', fr: 'fr-FR', de: 'de-DE', ru: 'ru-RU' };
 const UPLOAD_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
 const MAX_IMAGE_EDGE = 1600;
 const JPEG_QUALITY = 0.85;
@@ -32,17 +36,34 @@ let gateState = {
 let capabilities = { text: true, voice: true, image: true };
 let remainingAnalyses = null;
 
+// Demo examples in Spanish (the app is presented first in the Canary Islands): the reading follows the app
+// language, the ready-to-send replies stay in Spanish, the language of the message.
 const samples = {
-  decodeText: 'No tranquilla, vediamo più avanti :)',
-  voiceTranscript: 'No tranquilla, vediamo più avanti :)',
-  screenshotText: 'No tranquilla, vediamo più avanti :)',
-  sendText: 'Ok allora fammi sapere tu perché non capisco mai cosa vuoi',
+  decodeText: 'No te preocupes, ya lo vemos más adelante :)',
+  voiceTranscript: 'Hola, perdona que no te haya contestado antes, esta semana voy fatal de trabajo. Lo del sábado mejor lo dejamos para otro día, ¿vale? Ya te digo algo.',
+  screenshotText: 'Uf, esta semana voy fatal de trabajo… No te preocupes, ya lo vemos más adelante :)',
+  sendText: 'Vale, pues ya me dirás tú, porque nunca entiendo lo que quieres',
 };
 
 init();
 
+// Link of the code email (#code=…&lang=…): the language of the site page and the code, so the app opens in
+// that language and already unlocked. The fragment never reaches the server, and it leaves the address bar
+// (and the browser history) straight away.
+function readEmailLink() {
+  const params = new URLSearchParams(location.hash.slice(1));
+  const link = { code: (params.get('code') || '').trim(), lang: (params.get('lang') || '').trim().toLowerCase() };
+  if (link.code || link.lang) history.replaceState(null, '', location.pathname + location.search);
+  return link;
+}
+
 async function init() {
+  const link = readEmailLink();
   await loadLocales();
+  if (LANGS.includes(link.lang)) {
+    currentLang = link.lang;
+    localStorage.setItem(STORE.lang, currentLang);
+  }
   bindNavigation();
   bindOnboarding();
   bindHome();
@@ -60,6 +81,10 @@ async function init() {
   await refreshGateStatus(false);
   if (gateState.enabled && !gateState.unlocked) {
     showGateScreen(gateState.statusError ? t('gate.error.status') : '');
+    if (link.code && !gateState.statusError) {
+      $('#gateCodeInput').value = link.code;
+      await unlockGate();
+    }
     return;
   }
 
@@ -74,13 +99,22 @@ function openInitialScreen() {
 }
 
 function accessPageUrl() {
-  // The server provides the access page (BYS_ACCESS_PAGE_URL) in /api/access/status.
+  // The server provides the access page (BYS_ACCESS_PAGE_URL) in /api/access/status. On bb1studio.com that page
+  // exists in every language of the app: Spanish without a prefix, the others under /<lang>/.
   const raw = String(gateState.accessPage || '').trim();
-  return /^https?:\/\//i.test(raw) ? raw : DEFAULT_ACCESS_PAGE;
+  const url = new URL(/^https?:\/\//i.test(raw) ? raw : DEFAULT_ACCESS_PAGE);
+  if (url.hostname === 'bb1studio.com' && url.pathname === '/before-you-send/' && currentLang !== 'es') {
+    url.pathname = `/${currentLang}${url.pathname}`;
+  }
+  return url.href;
 }
 
 function openAccessPage() {
   window.open(accessPageUrl(), '_blank', 'noopener');
+}
+
+function openContact() {
+  window.location.href = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('Before You Send')}`;
 }
 
 function setGateError(message = '') {
@@ -220,7 +254,7 @@ function extractErrorMessage(data, fallback = 'API error') {
 }
 
 async function loadLocales() {
-  const langs = ['it', 'en', 'es'];
+  const langs = LANGS;
   const loaded = await Promise.all(langs.map(async (lang) => {
     const res = await fetch(`locales/${lang}.json`);
     const data = await res.json();
@@ -232,7 +266,7 @@ async function loadLocales() {
 
 function detectBrowserLang() {
   const raw = (navigator.language || 'it').slice(0, 2).toLowerCase();
-  return ['it', 'en', 'es'].includes(raw) ? raw : 'it';
+  return LANGS.includes(raw) ? raw : 'it';
 }
 
 function t(key, vars = {}) {
@@ -279,7 +313,7 @@ function bindLanguageSelectors() {
 }
 
 function setLanguage(lang) {
-  currentLang = ['it','en','es'].includes(lang) ? lang : 'it';
+  currentLang = LANGS.includes(lang) ? lang : 'it';
   localStorage.setItem(STORE.lang, currentLang);
   applyTranslations();
   if (!gateState.enabled || gateState.unlocked) checkApiHealth();
@@ -316,11 +350,16 @@ function bindDecode() {
     await runDecodeText(text);
   });
 
+  // Demo: the transcript of a Spanish voice note. The old demo recording was in Italian; a Spanish one can come
+  // back here when there is one. A file chosen before is cleared, so the demo analyzes the transcript.
   $('#useDemoVoice')?.addEventListener('click', () => {
     $('#voiceTranscript').value = samples.voiceTranscript;
+    const upload = $('#voiceUpload');
+    if (upload) upload.value = '';
     const player = $('#voicePlayer');
-    player.src = 'assets/voice_note_demo_27s.wav';
-    player.classList.remove('hidden');
+    player.pause();
+    player.removeAttribute('src');
+    player.classList.add('hidden');
   });
 
   $('#voiceUpload')?.addEventListener('change', (e) => {
@@ -564,7 +603,7 @@ async function runDecodeVoice() {
     if (file) form.append('file', file);
     if (transcript) form.append('transcript', transcript);
     form.append('lang', currentLang);
-    if (!file && !transcript) throw new Error(currentLang === 'it' ? 'Carica un file audio o incolla una trascrizione.' : currentLang === 'es' ? 'Sube un audio o pega una transcripción.' : 'Upload audio or paste a transcript.');
+    if (!file && !transcript) throw new Error(t('error.voice_missing'));
     const result = await apiForm('/api/decode/audio', form);
     latestDecodeResult = result;
     renderDecodeResult(result, 'voice', result.transcript || transcript || '');
@@ -578,7 +617,7 @@ async function runDecodeImage() {
     const form = new FormData();
     const file = $('#imageUpload')?.files?.[0];
     const extractedText = $('#imageExtractedText')?.value?.trim();
-    if (!file && !extractedText) throw new Error(currentLang === 'it' ? 'Carica uno screenshot o incolla il testo estratto.' : currentLang === 'es' ? 'Sube una captura o pega el texto extraído.' : 'Upload a screenshot or paste extracted text.');
+    if (!file && !extractedText) throw new Error(t('error.image_missing'));
     if (file) {
       const upload = await prepareImageUpload(file);
       form.append('file', upload, upload.name || 'screenshot.jpg');
@@ -704,10 +743,11 @@ function showDecodeError(error) { renderErrorCard($('#decodeResult'), t('error.d
 function showSendError(error) { renderErrorCard($('#sendResult'), t('error.send'), error); }
 function renderErrorCard(target, title, error) {
   const message = typeof error === 'string' ? error : (error?.message || t('error.generic'));
-  const accessButton = error?.showAccess ? `<button class="ghost" data-open-access>${escapeHTML(t('gate.access'))}</button>` : '';
+  // Trial ended (one code per email): the way to continue is to write to us.
+  const contactButton = error?.showAccess ? `<button class="ghost" data-contact>${escapeHTML(t('error.contact'))}</button>` : '';
   target.classList.remove('hidden');
-  target.innerHTML = `<section class="card error-card"><strong>${escapeHTML(title)}</strong><p>${escapeHTML(message)}</p>${accessButton}</section>`;
-  target.querySelector('[data-open-access]')?.addEventListener('click', openAccessPage);
+  target.innerHTML = `<section class="card error-card"><strong>${escapeHTML(title)}</strong><p>${escapeHTML(message)}</p>${contactButton}</section>`;
+  target.querySelector('[data-contact]')?.addEventListener('click', openContact);
   scrollSectionIntoView(target);
 }
 
@@ -916,6 +956,6 @@ function sourceLabel(source) { return t(`source.${source}`); }
 function persistHistory(){ localStorage.setItem(STORE.history, JSON.stringify(historyLog)); }
 function hardReset(){ localStorage.removeItem(STORE.onboarding); localStorage.removeItem(STORE.history); localStorage.removeItem(STORE.settings); localStorage.removeItem(STORE.lang); historyLog=[]; currentLang = detectBrowserLang(); applyTranslations(); renderHistory(); renderStats(); if (gateState.enabled && !gateState.unlocked) { showGateScreen(''); return; } openScreen('screen-onboarding-1'); }
 function loadJSON(key, fallback){ try{ return JSON.parse(localStorage.getItem(key)||'null') ?? fallback; }catch{ return fallback; } }
-function formatDate(iso){ try { return new Date(iso).toLocaleString(currentLang === 'it' ? 'it-IT' : currentLang === 'es' ? 'es-ES' : 'en-US', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }); } catch { return iso; } }
+function formatDate(iso){ try { return new Date(iso).toLocaleString(DATE_LOCALES[currentLang] || 'en-US', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }); } catch { return iso; } }
 async function copyText(text){ try{ await navigator.clipboard.writeText(text); } catch { const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); } }
 function escapeHTML(str){ return String(str ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;'); }

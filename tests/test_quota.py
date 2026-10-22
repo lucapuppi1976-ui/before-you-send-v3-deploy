@@ -37,7 +37,15 @@ def test_each_analysis_consumes_one_unit_and_reports_the_remainder(make_client):
 
 
 @pytest.mark.parametrize(
-    "lang,headline", [("it", "Prova terminata"), ("en", "Trial ended"), ("es", "Prueba terminada")]
+    "lang,headline",
+    [
+        ("it", "Prova terminata"),
+        ("en", "Trial ended"),
+        ("es", "Prueba terminada"),
+        ("fr", "Essai terminé"),
+        ("de", "Test beendet"),
+        ("ru", "Пробный доступ закончился"),
+    ],
 )
 def test_the_31st_analysis_of_a_trial_is_blocked(make_client, claude, lang, headline):
     client = make_client()
@@ -51,7 +59,8 @@ def test_the_31st_analysis_of_a_trial_is_blocked(make_client, claude, lang, head
     detail = blocked.json()["detail"]
     assert detail["code"] == "trial_ended"
     assert detail["message"].startswith(headline)
-    assert ACCESS_PAGE in detail["message"]
+    # One code per email: who has used the trial writes to us (the access page stays in detail["accessPage"]).
+    assert "hola@bb1studio.com" in detail["message"]
     assert detail["accessPage"] == ACCESS_PAGE
     assert blocked.headers["x-bys-remaining"] == "0"
     assert len(claude.calls) == calls_before  # the provider was not called

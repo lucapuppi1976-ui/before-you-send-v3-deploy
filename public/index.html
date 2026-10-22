@@ -14,7 +14,7 @@
   <section id="screen-splash" class="screen splash active">
     <div class="logo">BYS</div>
     <div class="center">
-      <p class="eyebrow" data-i18n="splash.eyebrow">ACCESSO ANTICIPATO</p>
+      <p class="eyebrow" data-i18n="splash.eyebrow">PROVA GRATUITA</p>
       <h1 data-i18n="app.name">Before You Send</h1>
       <p data-i18n="app.tagline">Capisci cosa voleva dire davvero. Controlla come suona il tuo messaggio prima di inviarlo.</p>
     </div>
@@ -26,8 +26,8 @@
       <section class="card stack-sm gate-card">
         <div class="between lang-row">
           <div>
-            <p class="eyebrow" data-i18n="gate.eyebrow">EARLY ACCESS</p>
-            <h1 data-i18n="gate.title">Open with your access code</h1>
+            <p class="eyebrow" data-i18n="gate.eyebrow">FREE TRIAL</p>
+            <h1 data-i18n="gate.title">Enter your code</h1>
           </div>
           <div class="lang-picker compact">
             <label for="langSelectGate" class="visually-hidden" data-i18n="lang.label">Language</label>
@@ -35,17 +35,20 @@
               <option value="it">Italiano</option>
               <option value="en">English</option>
               <option value="es">Español</option>
+              <option value="fr">Français</option>
+              <option value="de">Deutsch</option>
+              <option value="ru">Русский</option>
             </select>
           </div>
         </div>
-        <p class="muted" data-i18n="gate.p">Before You Send is currently available to early-access members. Enter your access code to continue.</p>
-        <input id="gateCodeInput" class="text-input" type="password" autocomplete="one-time-code" inputmode="text" maxlength="128" data-i18n-placeholder="gate.placeholder" placeholder="Enter access code">
+        <p class="muted" data-i18n="gate.p">Enter the personal code we emailed you: you get 30 free analyses.</p>
+        <input id="gateCodeInput" class="text-input" type="text" autocomplete="one-time-code" autocapitalize="characters" autocorrect="off" spellcheck="false" inputmode="text" maxlength="128" data-i18n-placeholder="gate.placeholder" placeholder="Your code">
         <div id="gateError" class="caption gate-error hidden"></div>
         <div class="actions single-col">
           <button class="primary" id="unlockAccessBtn" data-i18n="gate.unlock">Open app</button>
-          <button class="ghost" id="openAccessPageBtn" data-i18n="gate.access">View access options</button>
+          <button class="ghost" id="openAccessPageBtn" data-i18n="gate.access">No code yet? Get one free</button>
         </div>
-        <p class="caption" data-i18n="gate.note">Access is currently managed manually for early members.</p>
+        <p class="caption" data-i18n="gate.note">One code per email address. If you’ve lost it, write to us at hola@bb1studio.com.</p>
       </section>
     </div>
   </section>
@@ -60,7 +63,7 @@
     </div>
     <div class="progress"><div class="dot on"></div><div class="dot"></div><div class="dot"></div></div>
     <div class="phone-preview">
-      <div class="bubble in">No tranquilla, vediamo più avanti :)</div>
+      <div class="bubble in" lang="es">No te preocupes, ya lo vemos más adelante :)</div>
       <div class="bubble ai" data-i18n="onb1.preview.ai">Non sembra confuso. Sembra tiepido.</div>
     </div>
     <h2 data-i18n="onb1.h2">Testo, vocale o screenshot.</h2>
@@ -81,7 +84,7 @@
     </div>
     <div class="progress"><div class="dot on"></div><div class="dot on"></div><div class="dot"></div></div>
     <div class="phone-preview">
-      <div class="bubble in">Ok allora fammi sapere tu perché non capisco mai cosa vuoi</div>
+      <div class="bubble in" lang="es">Vale, pues ya me dirás tú, porque nunca entiendo lo que quieres</div>
       <div class="bubble ai" data-i18n="onb2.preview.ai">42/100 — suona più frustrato che lucido</div>
     </div>
     <h2 data-i18n="onb2.h2">Controlli il tono prima di inviare.</h2>
@@ -113,7 +116,7 @@
   <section id="screen-home" class="screen">
     <div class="topbar">
       <div class="brand">
-        <p class="eyebrow" data-i18n="home.eyebrow">ACCESSO ANTICIPATO</p>
+        <p class="eyebrow" data-i18n="home.eyebrow">PROVA GRATUITA</p>
         <h1 data-i18n="app.name">Before You Send</h1>
       </div>
       <button class="ghost small" id="resetAllBtn" data-i18n="home.reset">Reset</button>
@@ -136,6 +139,9 @@
             <option value="it">Italiano</option>
             <option value="en">English</option>
             <option value="es">Español</option>
+            <option value="fr">Français</option>
+            <option value="de">Deutsch</option>
+            <option value="ru">Русский</option>
           </select>
         </div>
       </div>
@@ -296,6 +302,9 @@
             <option value="it">Italiano</option>
             <option value="en">English</option>
             <option value="es">Español</option>
+            <option value="fr">Français</option>
+            <option value="de">Deutsch</option>
+            <option value="ru">Русский</option>
           </select>
         </div>
       </div>
