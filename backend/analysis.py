@@ -141,7 +141,10 @@ def call_claude(client: Any, request: ClaudeRequest, *, model: str, effort: str,
     params: dict[str, Any] = {
         "model": model,
         "max_tokens": max_tokens,
-        "system": request.system,
+        # The system prompt depends only on the analysis kind and the language, so it is marked for prompt caching
+        # (5 minutes, renewed by every hit): the next analysis of the same kind reads it at a tenth of the input price.
+        # Below the model's minimum cacheable length the API simply does not cache it.
+        "system": [{"type": "text", "text": request.system, "cache_control": {"type": "ephemeral"}}],
         "messages": request.messages,
         # `thinking` is omitted so the model runs its default adaptive thinking; effort is the
         # latency and cost control. The JSON schema makes the reply a structured output.
@@ -198,8 +201,9 @@ def call_claude(client: Any, request: ClaudeRequest, *, model: str, effort: str,
         fallback_used=fallback_used,
     )
     log.info(
-        "claude ok model=%s served_by=%s req=%s in=%d out=%d ms=%d fallback=%s",
-        model, result.model, request_id, result.input_tokens, result.output_tokens, latency_ms, fallback_used,
+        "claude ok model=%s served_by=%s req=%s in=%d out=%d cache_write=%d cache_read=%d ms=%d fallback=%s",
+        model, result.model, request_id, result.input_tokens, result.output_tokens,
+        result.cache_creation_input_tokens, result.cache_read_input_tokens, latency_ms, fallback_used,
     )
     return result
 

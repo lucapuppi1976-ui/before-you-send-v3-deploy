@@ -67,7 +67,8 @@ def test_claude_request_uses_structured_output_effort_and_the_fallback_branch(un
     serialized = json.dumps(schema)
     for unsupported in ("minimum", "maximum", "minItems", "maxItems", "minLength", "maxLength"):
         assert unsupported not in serialized
-    assert "English" in call["system"]
+    assert call["system"][0]["cache_control"] == {"type": "ephemeral"}
+    assert "English" in claude.last_system
     assert call["messages"] == [{"role": "user", "content": call["messages"][0]["content"]}]
     assert "<message>\nCi vediamo domani?\n</message>" in call["messages"][0]["content"]
     assert call["max_tokens"] == 16000
@@ -103,13 +104,13 @@ def test_other_supported_models_get_the_default_fallback(make_client, claude, mo
 )
 def test_prompts_follow_the_ui_language(unlocked, claude, lang, word):
     unlocked.post("/api/decode/text", json={"text": "ciao", "lang": lang})
-    assert word in claude.last["system"]
+    assert word in claude.last_system
 
 
 def test_unknown_language_falls_back_to_italian(unlocked, claude):
     body = unlocked.post("/api/decode/text", json={"text": "ciao", "lang": "pt"}).json()
     assert body["lang"] == "it"
-    assert "italiano" in claude.last["system"]
+    assert "italiano" in claude.last_system
 
 
 @pytest.mark.parametrize(
@@ -126,12 +127,12 @@ def test_unknown_language_falls_back_to_italian(unlocked, claude):
 def test_ready_replies_follow_the_language_of_the_message(unlocked, claude, lang, rule):
     # The reading is in the app language; the replies go to the sender, so they use the sender's language.
     unlocked.post("/api/decode/text", json={"text": "See you on Saturday?", "lang": lang})
-    assert rule in claude.last["system"]
+    assert rule in claude.last_system
 
 
 def test_screenshot_replies_follow_the_language_of_the_chat(unlocked, claude):
     unlocked.post("/api/decode/image", files={"file": ("chat.png", PNG_BYTES, "image/png")}, data={"lang": "it"})
-    assert "nella stessa lingua del messaggio ricevuto" in claude.last["system"]
+    assert "nella stessa lingua del messaggio ricevuto" in claude.last_system
 
 
 @pytest.mark.parametrize(
@@ -147,7 +148,7 @@ def test_screenshot_replies_follow_the_language_of_the_chat(unlocked, claude):
 )
 def test_rewrites_keep_the_language_of_the_draft(unlocked, claude, lang, rule):
     unlocked.post("/api/score/text", json={"text": "See you on Saturday?", "lang": lang})
-    assert rule in claude.last["system"]
+    assert rule in claude.last_system
 
 
 def test_score_text_returns_the_shape_app_js_expects(unlocked, claude):

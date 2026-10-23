@@ -76,7 +76,10 @@ def test_sonnet_request_on_the_wire(make_settings, wire):
     assert body["output_config"]["effort"] == "low"
     assert body["output_config"]["format"]["type"] == "json_schema"
     assert body["output_config"]["format"]["schema"]["additionalProperties"] is False
-    assert isinstance(body["system"], str) and "italiano" in body["system"]
+    (system,) = body["system"]
+    assert system["type"] == "text" and "italiano" in system["text"]
+    assert system["cache_control"] == {"type": "ephemeral"}
+    assert "cache_control" not in body  # an explicit marker on the system prompt, not automatic caching
     assert body["messages"][0]["role"] == "user"
     for absent in ("thinking", "temperature", "top_p", "top_k", "tool_choice", "tools"):
         assert absent not in body

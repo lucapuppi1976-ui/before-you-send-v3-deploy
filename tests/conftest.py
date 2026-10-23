@@ -124,6 +124,12 @@ class FakeClaude:
     def last(self) -> dict[str, Any]:
         return self.calls[-1]
 
+    @property
+    def last_system(self) -> str:
+        """Text of the last call's system prompt, which is sent as a single cached text block."""
+        (block,) = self.last["system"]
+        return block["text"]
+
 
 class FakeGroq:
     """Stands in for requests.post in backend.transcription."""
