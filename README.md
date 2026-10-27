@@ -3,7 +3,7 @@
 Web app (PWA) per capire un messaggio ricevuto e controllare il tono di uno da inviare.
 
 - **Decode**: analizza un messaggio ricevuto da testo incollato, da un vocale o da uno screenshot: verdetto, lettura veloce, 3 segnali, 2 avvertenze, toni e 3 risposte pronte.
-- **SendScore**: dà un punteggio 0-100 a una bozza, indica cosa migliorare e propone 4 riscritture (più chiara, più calda, più ferma, più breve).
+- **SendScore**: dà un punteggio 0-100 a una bozza, indica cosa migliorare e propone 4 riscritture (più chiara, più calda, più ferma, più breve). Facoltativo: il messaggio a cui la bozza risponde (`reply_to`), che Claude usa solo come contesto.
 - Lingue: italiano, inglese, spagnolo, francese, tedesco e russo (le stesse del sito bb1studio.com).
 
 ## Come è fatta
