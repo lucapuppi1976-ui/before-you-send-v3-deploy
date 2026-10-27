@@ -123,10 +123,17 @@ def create_app(settings: Optional[Settings] = None, *, public_dir: Path = PUBLIC
         if not analyzer.available:
             raise api_error(503, "unavailable", text(lang, "error_ai_unavailable"))
 
-    def trial_ended(lang: str) -> HTTPException:
+    def trial_ended(lang: str, reason: Optional[str]) -> HTTPException:
+        # reason ("exhausted", "expired" or "revoked") lets the app say whether the analyses are used up or the
+        # code is no longer active.
         return HTTPException(
             status_code=403,
-            detail={"code": "trial_ended", "message": text(lang, "trial_ended", url=access_page), "accessPage": access_page},
+            detail={
+                "code": "trial_ended",
+                "reason": reason if reason in ("exhausted", "expired") else "revoked",
+                "message": text(lang, "trial_ended", url=access_page),
+                "accessPage": access_page,
+            },
             headers={"X-BYS-Remaining": "0"},
         )
 
@@ -165,7 +172,7 @@ def create_app(settings: Optional[Settings] = None, *, public_dir: Path = PUBLIC
             if not outcome.ok:
                 if outcome.reason == "missing":
                     raise HTTPException(status_code=401, detail=LOCKED)
-                raise trial_ended(lang)
+                raise trial_ended(lang, outcome.reason)
             remaining = outcome.record.remaining if outcome.record else None
         try:
             result = work()
@@ -217,9 +224,9 @@ def create_app(settings: Optional[Settings] = None, *, public_dir: Path = PUBLIC
             log.info("unlock rejected: unknown code")
             raise HTTPException(status_code=403, detail="Invalid access code.")
         if result.status == "ended" or result.access is None:
-            log.info("unlock rejected: code id=%s is %s", result.record.id if result.record else "-",
-                     result.record.status() if result.record else "-")
-            raise trial_ended(lang)
+            status = result.record.status() if result.record else None
+            log.info("unlock rejected: code id=%s is %s", result.record.id if result.record else "-", status or "-")
+            raise trial_ended(lang, status)
         log.info("unlock ok code id=%s", result.access.code_id)
         response = JSONResponse({"ok": True, "enabled": True, "unlocked": True, "accessPage": access_page})
         response.set_cookie(

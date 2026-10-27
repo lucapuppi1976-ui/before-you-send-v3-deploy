@@ -1,0 +1,147 @@
+{
+ "decodeText": {
+  "input": "No te preocupes, ya lo vemos más adelante :)",
+  "result": {
+   "verdict": "Tranquiliza pero aplaza",
+   "meaning": "Te quita presión por ahora, pero deja el tema abierto sin fecha ni compromiso concreto.",
+   "flags": [
+    "Tranquiliza y aplaza a la vez",
+    "Sin fecha ni siguiente paso",
+    "Emoji sonriente suaviza el tono"
+   ],
+   "guardrails": [
+    "No des por hecho que el tema quedó resuelto o que hay un plan.",
+    "No asumas desinterés ni molestia: el mensaje no dice nada de eso."
+   ],
+   "tones": {
+    "warmth": 70,
+    "clarity": 30,
+    "interest": 45,
+    "respect": 75,
+    "urgency": 10
+   },
+   "replies": [
+    {
+     "style": "Neutra",
+     "text": "Vale, gracias. Lo retomamos más adelante entonces."
+    },
+    {
+     "style": "Amable",
+     "text": "Gracias por la tranquilidad :) Cuando te venga bien lo vemos, dime tú."
+    },
+    {
+     "style": "Concreta",
+     "text": "Perfecto :) ¿Te parece si lo retomamos la semana que viene para no dejarlo en el aire?"
+    }
+   ],
+   "source": "text",
+   "input": "No te preocupes, ya lo vemos más adelante :)",
+   "lang": "es"
+  }
+ },
+ "voice": {
+  "input": "Hola, perdona que no te haya contestado antes, esta semana voy fatal de trabajo. Lo del sábado mejor lo dejamos para otro día, ¿vale? Ya te digo algo.",
+  "result": {
+   "verdict": "Cancela con disculpa y aplaza",
+   "meaning": "Te dice que el sábado no sigue en pie, lo atribuye al trabajo y deja una nueva fecha sin concretar.",
+   "flags": [
+    "Cancela el plan del sábado",
+    "Aplaza sin proponer fecha",
+    "Se disculpa y da un motivo"
+   ],
+   "guardrails": [
+    "No des por hecho que haya perdido el interés; solo menciona carga de trabajo.",
+    "No asumas que habrá un nuevo plan, porque no ofrece ninguna fecha."
+   ],
+   "tones": {
+    "warmth": 55,
+    "clarity": 45,
+    "interest": 40,
+    "respect": 70,
+    "urgency": 15
+   },
+   "replies": [
+    {
+     "style": "Amable",
+     "text": "Tranquilo/a, no pasa nada. Ánimo con el trabajo esta semana. Cuando te venga bien, me dices."
+    },
+    {
+     "style": "Neutra",
+     "text": "Vale, sin problema. Dejamos el sábado. Avísame cuando tengas un hueco y vemos."
+    },
+    {
+     "style": "Directa",
+     "text": "Entendido, gracias por avisar. Si quieres, cuando se te calme la semana proponemos otro día."
+    }
+   ],
+   "source": "voice",
+   "input": "Hola, perdona que no te haya contestado antes, esta semana voy fatal de trabajo. Lo del sábado mejor lo dejamos para otro día, ¿vale? Ya te digo algo.",
+   "lang": "es",
+   "transcript": "Hola, perdona que no te haya contestado antes, esta semana voy fatal de trabajo. Lo del sábado mejor lo dejamos para otro día, ¿vale? Ya te digo algo."
+  }
+ },
+ "image": {
+  "input": "Uf, esta semana voy fatal de trabajo… No te preocupes, ya lo vemos más adelante :)",
+  "result": {
+   "verdict": "Tranquiliza pero aplaza",
+   "meaning": "La persona dice estar saturada de trabajo y propone retomar el tema más adelante, sin dar fecha.",
+   "flags": [
+    "Aplaza sin fecha concreta",
+    "Da una razón de agenda: semana de mucho trabajo",
+    "Tono amable con la carita sonriente"
+   ],
+   "guardrails": [
+    "No des por hecho que pierde el interés; solo habla de esta semana.",
+    "No des por seguro que retomará el tema sin que nadie lo proponga."
+   ],
+   "tones": {
+    "warmth": 70,
+    "clarity": 35,
+    "interest": 45,
+    "respect": 75,
+    "urgency": 10
+   },
+   "replies": [
+    {
+     "style": "Amable",
+     "text": "¡Ánimo con la semana! Sin prisa, cuando estés más libre me dices :)"
+    },
+    {
+     "style": "Neutra",
+     "text": "Vale, sin problema. ¿Te parece si lo retomamos la semana que viene?"
+    },
+    {
+     "style": "Informal",
+     "text": "Tranqui, aguanta esa semana. Ya me escribes cuando respires un poco :)"
+    }
+   ],
+   "source": "image",
+   "input": "Uf, esta semana voy fatal de trabajo… No te preocupes, ya lo vemos más adelante :)",
+   "lang": "es",
+   "extracted_text": "Uf, esta semana voy fatal de trabajo… No te preocupes, ya lo vemos más adelante :)",
+   "extraction_confidence": 100
+  }
+ },
+ "send": {
+  "input": "Vale, pues ya me dirás tú, porque nunca entiendo lo que quieres",
+  "result": {
+   "score": 28,
+   "label": "Hay que reescribir",
+   "issue": "Suena a reproche y no dice qué necesitas saber; la frase 'nunca entiendo lo que quieres' puede ponerle a la defensiva.",
+   "breakdown": {
+    "frustration": 78,
+    "clarity": 30,
+    "warmth": 20,
+    "pressure": 65
+   },
+   "rewrites": {
+    "clear": "Vale, no me ha quedado claro lo que necesitas. ¿Me lo puedes explicar con un ejemplo o decirme qué esperas exactamente?",
+    "warm": "Vale, creo que no te he entendido bien y no quiero hacerlo mal. ¿Me cuentas un poco más lo que buscas?",
+    "firm": "Vale, así no te entiendo. Dime con claridad qué quieres y lo vemos.",
+    "short": "No te he entendido. ¿Qué necesitas exactamente?"
+   },
+   "input": "Vale, pues ya me dirás tú, porque nunca entiendo lo que quieres",
+   "lang": "es"
+  }
+ }
+}

@@ -521,3 +521,36 @@ hr.sep {
 
 
 #decodeResult, #sendResult { scroll-margin-top: 12px; }
+
+/* One analysis at a time: locked buttons while it runs. */
+button:disabled { opacity: .5; cursor: default; }
+button:disabled:active { transform: none; }
+
+/* Hint under an empty field, instead of an analysis. */
+.field-hint { margin: -2px 0 0; color: #ffe7b0; font-size: .9rem; }
+
+/* Above a result: example (no analysis used) or analyses left. */
+.result-notice {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(124,149,255,0.28);
+  background: rgba(124,149,255,0.12);
+  color: var(--soft);
+  font-size: .92rem;
+}
+.result-notice.warn, #quotaInfo.warn { color: #ffe7b0; }
+.result-notice.warn { border-color: rgba(255,214,124,.28); background: rgba(255,214,124,.10); }
+#quotaInfo.warn { font-weight: 600; }
+
+/* End of the trial: what to do next, not an error. */
+.trial-card {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255,214,124,.28);
+  background: rgba(255,214,124,.10);
+  text-align: left;
+}
+.trial-card p { margin: 0; color: var(--soft); }

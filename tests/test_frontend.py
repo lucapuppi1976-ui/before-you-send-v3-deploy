@@ -90,3 +90,53 @@ def test_text_inputs_match_the_server_limit():
     for field in ("decodeTextInput", "voiceTranscript", "imageExtractedText", "sendInput"):
         assert re.search(rf'<textarea id="{field}" maxlength="6000"', INDEX), field
     assert 'maxlength="128"' in INDEX
+
+
+EXAMPLE_KINDS = ("decodeText", "voice", "image", "send")
+
+
+def test_free_examples_exist_in_every_language_with_the_shape_the_app_renders():
+    inputs = None
+    for lang in LOCALES:
+        data = json.loads((PUBLIC / "samples" / f"{lang}.json").read_text(encoding="utf-8"))
+        assert set(data) == set(EXAMPLE_KINDS), lang
+        # Same Spanish messages in every language: only the reading changes.
+        current = {kind: data[kind]["input"] for kind in EXAMPLE_KINDS}
+        assert inputs in (None, current), lang
+        inputs = current
+        for kind in ("decodeText", "voice", "image"):
+            result = data[kind]["result"]
+            assert result["lang"] == lang and result["verdict"] and result["meaning"], (lang, kind)
+            assert len(result["flags"]) == 3 and len(result["guardrails"]) == 2 and len(result["replies"]) == 3
+            assert all(reply["style"] and reply["text"] for reply in result["replies"])
+            assert set(result["tones"]) and all(0 <= value <= 100 for value in result["tones"].values())
+        assert data["voice"]["result"]["transcript"] == inputs["voice"]
+        assert data["image"]["result"]["extracted_text"] == inputs["image"]
+        send = data["send"]["result"]
+        assert 0 <= send["score"] <= 100 and send["label"] and send["issue"], lang
+        assert set(send["rewrites"]) == {"clear", "warm", "firm", "short"} and all(send["rewrites"].values())
+
+
+def test_examples_are_free_and_precached():
+    # An example is shown from samples/<lang>.json; an empty field gets a hint instead of analyzing the example.
+    assert "fetch(`samples/${lang}.json`)" in APP_JS
+    assert "|| samples." not in APP_JS and "const samples" not in APP_JS
+    assert APP_JS.count("isExampleInput(") >= 5
+    precache = re.search(r"const PRECACHE = \[(.*?)\];", SW_JS, flags=re.S).group(1)
+    for lang in LOCALES:
+        assert f"'./samples/{lang}.json'" in precache, lang
+
+
+def test_one_analysis_at_a_time():
+    buttons = re.search(r"const ANALYSIS_BUTTONS = \[(.*?)\];", APP_JS, flags=re.S).group(1)
+    for button in ("decodeTextAnalyze", "decodeVoiceAnalyze", "decodeImageAnalyze", "sendAnalyze", "runQuickDemo"):
+        assert f"'#{button}'" in buttons, button
+    for button in ("decodeTextAnalyze", "decodeVoiceAnalyze", "decodeImageAnalyze", "sendAnalyze"):
+        assert re.search(rf"\$\('#{button}'\)\?\.addEventListener\('click', \(\) => withAnalysisLock\(", APP_JS), button
+
+
+def test_deleting_and_signing_out_ask_first():
+    assert 'id="resetAllBtn"' not in INDEX  # no reset button on the Home, only in the settings
+    for key in ("confirm.reset", "confirm.clearHistory", "confirm.lock"):
+        assert f"window.confirm(t('{key}'))" in APP_JS, key
+    assert 'id="gateContactBtn"' in INDEX and 'id="trialEndedHome"' in INDEX

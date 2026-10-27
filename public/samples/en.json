@@ -1,0 +1,147 @@
+{
+ "decodeText": {
+  "input": "No te preocupes, ya lo vemos más adelante :)",
+  "result": {
+   "verdict": "Reassuring but postponed",
+   "meaning": "The sender is easing any worry and putting the topic off to a later, unspecified time.",
+   "flags": [
+    "Reassures but postpones",
+    "No date or next step",
+    "Smiley softens the tone"
+   ],
+   "guardrails": [
+    "Don't assume it means yes, no, or that the issue is resolved.",
+    "Don't assume they lack interest; the message doesn't say why it's delayed."
+   ],
+   "tones": {
+    "warmth": 70,
+    "clarity": 30,
+    "interest": 40,
+    "respect": 75,
+    "urgency": 10
+   },
+   "replies": [
+    {
+     "style": "Neutral",
+     "text": "Vale, gracias. Lo retomamos más adelante entonces."
+    },
+    {
+     "style": "Friendly",
+     "text": "¡Perfecto, gracias por avisar! Cuando te venga bien lo hablamos :)"
+    },
+    {
+     "style": "Clarifying",
+     "text": "Gracias. ¿Te parece si lo retomamos la semana que viene para no dejarlo en el aire?"
+    }
+   ],
+   "source": "text",
+   "input": "No te preocupes, ya lo vemos más adelante :)",
+   "lang": "en"
+  }
+ },
+ "voice": {
+  "input": "Hola, perdona que no te haya contestado antes, esta semana voy fatal de trabajo. Lo del sábado mejor lo dejamos para otro día, ¿vale? Ya te digo algo.",
+  "result": {
+   "verdict": "Polite postponement, no new date",
+   "meaning": "They are apologizing for the late reply, citing work stress, and pushing Saturday to an unspecified later time.",
+   "flags": [
+    "Apologizes for the delay",
+    "Cancels Saturday, no new date",
+    "Vague 'I'll tell you' promise"
+   ],
+   "guardrails": [
+    "Don't assume they've lost interest; work stress is the only reason given.",
+    "Don't assume a new plan will happen; no date or time was offered."
+   ],
+   "tones": {
+    "warmth": 55,
+    "clarity": 40,
+    "interest": 45,
+    "respect": 70,
+    "urgency": 15
+   },
+   "replies": [
+    {
+     "style": "Neutral",
+     "text": "Vale, sin problema. Ánimo con el trabajo esta semana. Cuando te venga bien, me dices."
+    },
+    {
+     "style": "Friendly",
+     "text": "Tranquilo/a, te entiendo. Cuídate mucho y descansa en cuanto puedas. Me encantaría quedar cuando te vaya mejor."
+    },
+    {
+     "style": "Direct",
+     "text": "Vale, lo dejamos para otro día. ¿Te parece si lo retomamos el próximo fin de semana y vemos cómo vas?"
+    }
+   ],
+   "source": "voice",
+   "input": "Hola, perdona que no te haya contestado antes, esta semana voy fatal de trabajo. Lo del sábado mejor lo dejamos para otro día, ¿vale? Ya te digo algo.",
+   "lang": "en",
+   "transcript": "Hola, perdona que no te haya contestado antes, esta semana voy fatal de trabajo. Lo del sábado mejor lo dejamos para otro día, ¿vale? Ya te digo algo."
+  }
+ },
+ "image": {
+  "input": "Uf, esta semana voy fatal de trabajo… No te preocupes, ya lo vemos más adelante :)",
+  "result": {
+   "verdict": "Reassuring but postponed",
+   "meaning": "They say work is overwhelming this week and suggest picking the topic up later without giving a date.",
+   "flags": [
+    "Reassures, but postpones",
+    "No date or next step",
+    "Friendly emoji softens delay"
+   ],
+   "guardrails": [
+    "Don't assume it means lost interest or a no.",
+    "Don't assume a specific time frame for 'later'."
+   ],
+   "tones": {
+    "warmth": 70,
+    "clarity": 35,
+    "interest": 45,
+    "respect": 75,
+    "urgency": 10
+   },
+   "replies": [
+    {
+     "style": "Neutral",
+     "text": "Entiendo, gracias por avisar. Cuando tengas un hueco, me dices y lo vemos."
+    },
+    {
+     "style": "Friendly",
+     "text": "¡Ánimo con la semana! Sin prisa, lo hablamos cuando estés más tranquilo/a :)"
+    },
+    {
+     "style": "Concrete",
+     "text": "Sin problema. ¿Te parece si lo retomamos el próximo lunes? Si no te viene bien, me dices."
+    }
+   ],
+   "source": "image",
+   "input": "Uf, esta semana voy fatal de trabajo… No te preocupes, ya lo vemos más adelante :)",
+   "lang": "en",
+   "extracted_text": "Uf, esta semana voy fatal de trabajo… No te preocupes, ya lo vemos más adelante :)",
+   "extraction_confidence": 100
+  }
+ },
+ "send": {
+  "input": "Vale, pues ya me dirás tú, porque nunca entiendo lo que quieres",
+  "result": {
+   "score": 28,
+   "label": "Rewrite it",
+   "issue": "It sounds sarcastic and blames the other person, and it doesn't say what you actually need or ask a clear question.",
+   "breakdown": {
+    "frustration": 78,
+    "clarity": 25,
+    "warmth": 15,
+    "pressure": 60
+   },
+   "rewrites": {
+    "clear": "Vale, la verdad es que no tengo claro qué quieres. ¿Me lo puedes explicar con un ejemplo o decirme qué esperas de mí?",
+    "warm": "Vale, quiero hacerlo bien pero me cuesta entender qué necesitas. ¿Me lo cuentas con calma y así lo veo mejor?",
+    "firm": "Vale, pero así no puedo adivinar lo que quieres. Dime claramente qué necesitas y lo vemos.",
+    "short": "Vale, ¿qué es exactamente lo que quieres?"
+   },
+   "input": "Vale, pues ya me dirás tú, porque nunca entiendo lo que quieres",
+   "lang": "en"
+  }
+ }
+}

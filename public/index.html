@@ -43,9 +43,10 @@
         </div>
         <p class="muted" data-i18n="gate.p">Enter the personal code we emailed you: you get 30 free analyses.</p>
         <input id="gateCodeInput" class="text-input" type="text" autocomplete="one-time-code" autocapitalize="characters" autocorrect="off" spellcheck="false" inputmode="text" maxlength="128" data-i18n-placeholder="gate.placeholder" placeholder="Your code">
-        <div id="gateError" class="caption gate-error hidden"></div>
+        <div id="gateError" class="caption gate-error hidden" role="alert"></div>
         <div class="actions single-col">
           <button class="primary" id="unlockAccessBtn" data-i18n="gate.unlock">Open app</button>
+          <button class="ghost hidden" id="gateContactBtn" data-i18n="error.contact">Write to us</button>
           <button class="ghost" id="openAccessPageBtn" data-i18n="gate.access">No code yet? Get one free</button>
         </div>
         <p class="caption" data-i18n="gate.note">One code per email address. If you’ve lost it, write to us at hola@bb1studio.com.</p>
@@ -119,7 +120,6 @@
         <p class="eyebrow" data-i18n="home.eyebrow">PROVA GRATUITA</p>
         <h1 data-i18n="app.name">Before You Send</h1>
       </div>
-      <button class="ghost small" id="resetAllBtn" data-i18n="home.reset">Reset</button>
     </div>
 
     <div id="installBanner" class="card install-banner hidden">
@@ -149,6 +149,11 @@
       <div id="apiStatusBadge" class="badge waiting" data-health-badge>Controllo in corso…</div>
       <div id="apiStatusDetail" class="caption muted" data-health-detail>Verifica della connessione AI…</div>
       <div id="quotaInfo" class="caption hidden" aria-live="polite"></div>
+      <div id="trialEndedHome" class="trial-card hidden" role="status">
+        <strong id="trialEndedTitle"></strong>
+        <p data-i18n="trial.next">Vuoi continuare a usare Before You Send? Scrivici e ti spieghiamo come.</p>
+        <button class="primary" id="trialContactBtn" data-i18n="error.contact">Scrivici</button>
+      </div>
       <div class="actions" style="margin-top:8px;">
         <button class="ghost small" id="refreshApiHealth" data-i18n="home.health.refresh">Controlla connessione</button>
         <button class="ghost small" id="runQuickDemo" data-i18n="home.quickdemo">Prova subito</button>

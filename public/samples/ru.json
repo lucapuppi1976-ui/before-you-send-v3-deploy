@@ -1,0 +1,147 @@
+{
+ "decodeText": {
+  "input": "No te preocupes, ya lo vemos más adelante :)",
+  "result": {
+   "verdict": "Успокаивает, но откладывает",
+   "meaning": "Человек говорит не переживать и переносит решение вопроса на неопределённое «потом».",
+   "flags": [
+    "Нет конкретной даты или срока",
+    "«Más adelante» звучит расплывчато",
+    "Смайлик смягчает тон, но не добавляет ясности"
+   ],
+   "guardrails": [
+    "Не считайте это согласием или отказом: ответа по сути пока нет",
+    "Не придумывайте причину переноса: в сообщении о ней ничего не сказано"
+   ],
+   "tones": {
+    "warmth": 70,
+    "clarity": 25,
+    "interest": 40,
+    "respect": 75,
+    "urgency": 10
+   },
+   "replies": [
+    {
+     "style": "Нейтрально",
+     "text": "Vale, gracias. ¿Te parece si lo retomamos la próxima semana?"
+    },
+    {
+     "style": "Дружелюбно",
+     "text": "¡Perfecto, gracias por la calma! :) Dime cuando te venga bien y lo vemos."
+    },
+    {
+     "style": "Прямо",
+     "text": "Gracias. Para organizarme, ¿sabes más o menos cuándo podríamos verlo?"
+    }
+   ],
+   "source": "text",
+   "input": "No te preocupes, ya lo vemos más adelante :)",
+   "lang": "ru"
+  }
+ },
+ "voice": {
+  "input": "Hola, perdona que no te haya contestado antes, esta semana voy fatal de trabajo. Lo del sábado mejor lo dejamos para otro día, ¿vale? Ya te digo algo.",
+  "result": {
+   "verdict": "Вежливо откладывает встречу",
+   "meaning": "Человек отменяет субботние планы из-за занятости и обещает написать позже, но новой даты не назвал.",
+   "flags": [
+    "Суббота отменена, новой даты нет",
+    "«Ya te digo algo» — расплывчатое обещание без срока",
+    "Извиняется и объясняет причину загруженностью на работе"
+   ],
+   "guardrails": [
+    "Не стоит считать, что это отказ или, наоборот, что встреча точно состоится.",
+    "Не додумывайте скрытые причины: в сообщении названа только работа."
+   ],
+   "tones": {
+    "warmth": 50,
+    "clarity": 35,
+    "interest": 40,
+    "respect": 75,
+    "urgency": 15
+   },
+   "replies": [
+    {
+     "style": "Нейтрально",
+     "text": "Vale, no te preocupes. Cuando tengas un hueco me dices."
+    },
+    {
+     "style": "Дружелюбно",
+     "text": "Tranquilo/a, ánimo con el trabajo. Ya me dices cuando te venga bien."
+    },
+    {
+     "style": "Уточняюще",
+     "text": "Vale, sin problema. ¿Te parece si hablamos a principios de la semana que viene para ver si cuadra algo?"
+    }
+   ],
+   "source": "voice",
+   "input": "Hola, perdona que no te haya contestado antes, esta semana voy fatal de trabajo. Lo del sábado mejor lo dejamos para otro día, ¿vale? Ya te digo algo.",
+   "lang": "ru",
+   "transcript": "Hola, perdona que no te haya contestado antes, esta semana voy fatal de trabajo. Lo del sábado mejor lo dejamos para otro día, ¿vale? Ya te digo algo."
+  }
+ },
+ "image": {
+  "input": "Uf, esta semana voy fatal de trabajo… No te preocupes, ya lo vemos más adelante :)",
+  "result": {
+   "verdict": "Мягкий перенос без срока",
+   "meaning": "Человек занят на этой неделе и откладывает разговор или планы на потом, не назвав конкретного времени.",
+   "flags": [
+    "«Ya lo vemos más adelante» — без даты и срока",
+    "«No te preocupes» успокаивает, но откладывает вопрос",
+    "Причина названа: загрузка на работе на этой неделе"
+   ],
+   "guardrails": [
+    "Не стоит считать это отказом: отказа в сообщении нет",
+    "Не стоит считать это обещанием: конкретики тоже нет"
+   ],
+   "tones": {
+    "warmth": 65,
+    "clarity": 30,
+    "interest": 50,
+    "respect": 70,
+    "urgency": 10
+   },
+   "replies": [
+    {
+     "style": "Дружелюбно",
+     "text": "¡Ánimo con la semana! Cuando te vaya mejor me dices y lo vemos :)"
+    },
+    {
+     "style": "Нейтрально",
+     "text": "Vale, sin problema. ¿Te parece si lo retomamos el lunes?"
+    },
+    {
+     "style": "Неформально",
+     "text": "Uf, qué semana, te entiendo. Tú dime cuándo respires y lo hablamos ;)"
+    }
+   ],
+   "source": "image",
+   "input": "Uf, esta semana voy fatal de trabajo… No te preocupes, ya lo vemos más adelante :)",
+   "lang": "ru",
+   "extracted_text": "Uf, esta semana voy fatal de trabajo… No te preocupes, ya lo vemos más adelante :)",
+   "extraction_confidence": 100
+  }
+ },
+ "send": {
+  "input": "Vale, pues ya me dirás tú, porque nunca entiendo lo que quieres",
+  "result": {
+   "score": 28,
+   "label": "Лучше переписать",
+   "issue": "Сообщение звучит как упрёк и не говорит, что именно непонятно и чего ты ждёшь от человека.",
+   "breakdown": {
+    "frustration": 75,
+    "clarity": 30,
+    "warmth": 20,
+    "pressure": 60
+   },
+   "rewrites": {
+    "clear": "Vale. Ahora mismo no tengo claro qué necesitas de mí. ¿Me lo puedes explicar con un ejemplo o decirme qué esperas exactamente?",
+    "warm": "Vale, me gustaría entenderte bien. A veces me cuesta saber qué quieres, ¿me lo cuentas con otras palabras?",
+    "firm": "Vale. Necesito que me digas claramente qué quieres, porque así no puedo saber cómo ayudarte.",
+    "short": "Vale, dime claramente qué quieres y lo vemos."
+   },
+   "input": "Vale, pues ya me dirás tú, porque nunca entiendo lo que quieres",
+   "lang": "ru"
+  }
+ }
+}

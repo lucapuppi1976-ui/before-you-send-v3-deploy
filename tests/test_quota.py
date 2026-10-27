@@ -58,6 +58,7 @@ def test_the_31st_analysis_of_a_trial_is_blocked(make_client, claude, lang, head
     assert blocked.status_code == 403
     detail = blocked.json()["detail"]
     assert detail["code"] == "trial_ended"
+    assert detail["reason"] == "exhausted"  # the app says the analyses are used up
     assert detail["message"].startswith(headline)
     # One code per email: who has used the trial writes to us (the access page stays in detail["accessPage"]).
     assert "hola@bb1studio.com" in detail["message"]
@@ -140,19 +141,24 @@ def test_revoked_code_is_rejected(make_client):
     response = client.post("/api/decode/text", json={"text": "ciao", "lang": "en"})
     assert response.status_code == 403
     assert response.json()["detail"]["code"] == "trial_ended"
+    assert response.json()["detail"]["reason"] == "revoked"
     assert client.get("/api/access/status").json()["unlocked"] is False
     assert client.get("/api/config").status_code == 401
     again = client.post("/api/access/unlock", json={"code": code, "lang": "es"})
     assert again.status_code == 403
     assert again.json()["detail"]["message"].startswith("Prueba terminada")
+    assert again.json()["detail"]["reason"] == "revoked"
 
 
 def test_expired_code_is_rejected(make_client):
     client = make_client()
     code, code_id = unlock(client, expires_at=int(time.time()) + 3600)
     client.app.state.store.set_expiry(code_id, int(time.time()) - 1)
-    assert client.post("/api/decode/text", json={"text": "ciao"}).json()["detail"]["code"] == "trial_ended"
-    assert client.post("/api/access/unlock", json={"code": code}).status_code == 403
+    detail = client.post("/api/decode/text", json={"text": "ciao"}).json()["detail"]
+    assert (detail["code"], detail["reason"]) == ("trial_ended", "expired")
+    again = client.post("/api/access/unlock", json={"code": code})
+    assert again.status_code == 403
+    assert again.json()["detail"]["reason"] == "expired"
 
 
 def test_used_up_code_cannot_unlock(make_client):
@@ -162,6 +168,7 @@ def test_used_up_code_cannot_unlock(make_client):
     response = client.post("/api/access/unlock", json={"code": code, "lang": "it"})
     assert response.status_code == 403
     assert response.json()["detail"]["message"].startswith("Prova terminata")
+    assert response.json()["detail"]["reason"] == "exhausted"
 
 
 def test_paid_code_without_quota_is_unlimited(make_client):

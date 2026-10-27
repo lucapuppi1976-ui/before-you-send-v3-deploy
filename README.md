@@ -81,9 +81,18 @@ python tools/codes.py extend 12 --days 30        # oppure --until 2026-12-31 / -
 python tools/codes.py convert 12 --quota 500     # da prova a pagamento
 ```
 
-Ogni codice viene mostrato una sola volta. Ogni analisi (anche un vocale) consuma un'unità prima di chiamare il provider; se il provider fallisce l'unità viene restituita. A quota finita, o con codice scaduto o revocato, l'app mostra "Prova terminata" con il link alla pagina di accesso.
+Ogni codice viene mostrato una sola volta. Ogni analisi (anche un vocale) consuma un'unità prima di chiamare il provider; se il provider fallisce l'unità viene restituita. I pulsanti restano bloccati mentre un'analisi è in corso, così un doppio tocco non ne consuma due. Da 5 analisi rimaste l'app lo dice nella Home e sopra ogni risultato. A quota finita l'app mostra "Hai usato tutte le tue analisi", con codice scaduto o revocato "Il tuo codice non è più attivo", sempre con il pulsante per scriverci (il motivo arriva dal server in `detail.reason`: `exhausted`, `expired` o `revoked`).
 
 Per n8n sulla stessa macchina c'è `POST http://127.0.0.1:8110/admin/codes` (dettagli in `DEPLOY_VPS.md`).
+
+## Esempi gratis
+
+«Prova subito» e i pulsanti «Prova esempio» mostrano risultati già pronti, da `public/samples/<lingua>.json`, senza chiamare Claude: gli esempi non consumano analisi, e analizzare il testo di un esempio senza cambiarlo mostra di nuovo l'esempio. I messaggi degli esempi sono in spagnolo; la lettura è nella lingua dell'app. Si rigenerano dopo aver cambiato i prompt o i testi degli esempi (24 chiamate a pagamento, circa 20 centesimi):
+
+```bash
+python tools/build_samples.py --yes             # tutte le lingue
+python tools/build_samples.py --yes --lang es   # una sola lingua
+```
 
 ## Test
 

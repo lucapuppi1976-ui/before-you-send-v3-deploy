@@ -1,0 +1,147 @@
+{
+ "decodeText": {
+  "input": "No te preocupes, ya lo vemos más adelante :)",
+  "result": {
+   "verdict": "Rassure mais reporte",
+   "meaning": "La personne dit de ne pas s'inquiéter et propose de reparler du sujet plus tard, sans donner de date.",
+   "flags": [
+    "Rassure d'abord, puis repousse",
+    "Aucune date ni échéance précise",
+    "Smiley qui garde un ton léger"
+   ],
+   "guardrails": [
+    "Ne pas supposer que le sujet est réglé ou accepté.",
+    "Ne pas conclure à un refus ou à un désintérêt : rien ne le dit."
+   ],
+   "tones": {
+    "warmth": 70,
+    "clarity": 30,
+    "interest": 40,
+    "respect": 75,
+    "urgency": 10
+   },
+   "replies": [
+    {
+     "style": "Neutre",
+     "text": "Vale, gracias. Cuando te venga bien lo retomamos."
+    },
+    {
+     "style": "Amicale",
+     "text": "Perfecto, gracias por la tranquilidad :) Dime cuando te encaje y lo vemos."
+    },
+    {
+     "style": "Précise",
+     "text": "Genial. ¿Te parece si lo retomamos a finales de semana? Así lo tenemos en mente."
+    }
+   ],
+   "source": "text",
+   "input": "No te preocupes, ya lo vemos más adelante :)",
+   "lang": "fr"
+  }
+ },
+ "voice": {
+  "input": "Hola, perdona que no te haya contestado antes, esta semana voy fatal de trabajo. Lo del sábado mejor lo dejamos para otro día, ¿vale? Ya te digo algo.",
+  "result": {
+   "verdict": "Report poli, sans nouvelle date",
+   "meaning": "La personne s'excuse de sa lenteur, annule le plan de samedi en invoquant sa charge de travail et promet de revenir vers toi sans rien fixer.",
+   "flags": [
+    "Excuse pour le retard, mais plan repoussé",
+    "Aucune nouvelle date proposée",
+    "« Ya te digo algo » reste vague, sans échéance"
+   ],
+   "guardrails": [
+    "Ne pas en conclure un désintérêt : seul le travail est mentionné.",
+    "Ne pas supposer que le plan sera reprogrammé : rien n'est promis."
+   ],
+   "tones": {
+    "warmth": 55,
+    "clarity": 40,
+    "interest": 35,
+    "respect": 75,
+    "urgency": 10
+   },
+   "replies": [
+    {
+     "style": "Neutre",
+     "text": "Vale, no te preocupes. Ánimo con el trabajo, y ya me dices cuando puedas."
+    },
+    {
+     "style": "Amicale",
+     "text": "Tranqui, lo entiendo. Que se te haga leve la semana. Cuando te venga bien, quedamos y lo organizamos."
+    },
+    {
+     "style": "Directe",
+     "text": "Vale, sin problema. ¿Te parece si lo retomamos a principios de la semana que viene para buscar otra fecha?"
+    }
+   ],
+   "source": "voice",
+   "input": "Hola, perdona que no te haya contestado antes, esta semana voy fatal de trabajo. Lo del sábado mejor lo dejamos para otro día, ¿vale? Ya te digo algo.",
+   "lang": "fr",
+   "transcript": "Hola, perdona que no te haya contestado antes, esta semana voy fatal de trabajo. Lo del sábado mejor lo dejamos para otro día, ¿vale? Ya te digo algo."
+  }
+ },
+ "image": {
+  "input": "Uf, esta semana voy fatal de trabajo… No te preocupes, ya lo vemos más adelante :)",
+  "result": {
+   "verdict": "Rassure mais repousse",
+   "meaning": "La personne dit être débordée cette semaine et propose de reparler du sujet plus tard, sans donner de date.",
+   "flags": [
+    "Surcharge de travail évoquée",
+    "Report sans date précise",
+    "Smiley qui adoucit le ton"
+   ],
+   "guardrails": [
+    "Ne pas en conclure un désintérêt : la raison donnée est le travail.",
+    "Ne pas supposer qu'un « plus tard » viendra sans relance."
+   ],
+   "tones": {
+    "warmth": 68,
+    "clarity": 35,
+    "interest": 45,
+    "respect": 80,
+    "urgency": 10
+   },
+   "replies": [
+    {
+     "style": "Neutre",
+     "text": "Ningún problema, gracias por avisar. Cuando tengas un hueco me dices."
+    },
+    {
+     "style": "Amicale",
+     "text": "¡Ánimo con esa semana! Tú tranquilo/a, lo vemos cuando te venga bien :)"
+    },
+    {
+     "style": "Précise",
+     "text": "Vale, sin prisa. ¿Te parece si lo retomamos la semana que viene? Si no, me dices tú."
+    }
+   ],
+   "source": "image",
+   "input": "Uf, esta semana voy fatal de trabajo… No te preocupes, ya lo vemos más adelante :)",
+   "lang": "fr",
+   "extracted_text": "Uf, esta semana voy fatal de trabajo… No te preocupes, ya lo vemos más adelante :)",
+   "extraction_confidence": 100
+  }
+ },
+ "send": {
+  "input": "Vale, pues ya me dirás tú, porque nunca entiendo lo que quieres",
+  "result": {
+   "score": 32,
+   "label": "À réécrire",
+   "issue": "Le message sonne comme un reproche (« nunca entiendo lo que quieres ») et ne dit pas clairement ce dont tu as besoin, ce qui peut mettre l'autre sur la défensive.",
+   "breakdown": {
+    "frustration": 75,
+    "clarity": 35,
+    "warmth": 20,
+    "pressure": 60
+   },
+   "rewrites": {
+    "clear": "Vale, no tengo claro qué quieres exactamente. ¿Me lo explicas con otras palabras?",
+    "warm": "Vale, creo que no te he entendido bien y quiero acertar. ¿Me cuentas qué te gustaría?",
+    "firm": "Vale, pero necesito que me digas claramente qué quieres, porque así no puedo saberlo.",
+    "short": "Vale. Dime qué quieres y lo vemos."
+   },
+   "input": "Vale, pues ya me dirás tú, porque nunca entiendo lo que quieres",
+   "lang": "fr"
+  }
+ }
+}

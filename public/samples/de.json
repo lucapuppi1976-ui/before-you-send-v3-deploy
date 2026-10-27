@@ -1,0 +1,147 @@
+{
+ "decodeText": {
+  "input": "No te preocupes, ya lo vemos más adelante :)",
+  "result": {
+   "verdict": "Beruhigend, aber vertagt",
+   "meaning": "Die Person nimmt den Druck raus und schiebt das Thema auf einen späteren, nicht genannten Zeitpunkt.",
+   "flags": [
+    "Beruhigt, schiebt aber auf",
+    "Kein konkreter Zeitpunkt genannt",
+    "Freundlicher Ton durch Smiley"
+   ],
+   "guardrails": [
+    "Nicht annehmen, dass das Thema wirklich erledigt oder unwichtig ist.",
+    "Nicht annehmen, dass es bald oder überhaupt einen Termin dafür gibt."
+   ],
+   "tones": {
+    "warmth": 75,
+    "clarity": 35,
+    "interest": 45,
+    "respect": 80,
+    "urgency": 10
+   },
+   "replies": [
+    {
+     "style": "Neutral",
+     "text": "Vale, gracias. ¿Te parece bien si lo retomamos la semana que viene?"
+    },
+    {
+     "style": "Freundlich",
+     "text": "¡Gracias por la tranquilidad! :) Dime cuándo te viene bien y lo vemos."
+    },
+    {
+     "style": "Locker",
+     "text": "Perfecto, sin prisa :) Solo dime cuándo y lo hablamos."
+    }
+   ],
+   "source": "text",
+   "input": "No te preocupes, ya lo vemos más adelante :)",
+   "lang": "de"
+  }
+ },
+ "voice": {
+  "input": "Hola, perdona que no te haya contestado antes, esta semana voy fatal de trabajo. Lo del sábado mejor lo dejamos para otro día, ¿vale? Ya te digo algo.",
+  "result": {
+   "verdict": "Höflich vertagt, ohne neuen Termin",
+   "meaning": "Die Person entschuldigt sich für die späte Antwort, sagt den Samstag ab und verspricht, sich später zu melden.",
+   "flags": [
+    "Samstag wird abgesagt",
+    "Kein neuer Termin genannt",
+    "Grund: viel Arbeit diese Woche"
+   ],
+   "guardrails": [
+    "Nicht annehmen, dass es sicher einen Ersatztermin gibt.",
+    "Nicht annehmen, dass es an dir liegt oder dass kein Interesse besteht."
+   ],
+   "tones": {
+    "warmth": 55,
+    "clarity": 45,
+    "interest": 40,
+    "respect": 75,
+    "urgency": 15
+   },
+   "replies": [
+    {
+     "style": "Neutral",
+     "text": "Vale, no pasa nada. Entiendo que tienes mucho lío. Dime algo cuando puedas."
+    },
+    {
+     "style": "Freundlich",
+     "text": "Tranquilo/a, ¡ánimo con el trabajo! Cuando te venga bien me dices y buscamos otro día."
+    },
+    {
+     "style": "Klar",
+     "text": "Vale, sin problema. Si te parece, hablamos a principios de la próxima semana para ver si podemos quedar otro día."
+    }
+   ],
+   "source": "voice",
+   "input": "Hola, perdona que no te haya contestado antes, esta semana voy fatal de trabajo. Lo del sábado mejor lo dejamos para otro día, ¿vale? Ya te digo algo.",
+   "lang": "de",
+   "transcript": "Hola, perdona que no te haya contestado antes, esta semana voy fatal de trabajo. Lo del sábado mejor lo dejamos para otro día, ¿vale? Ya te digo algo."
+  }
+ },
+ "image": {
+  "input": "Uf, esta semana voy fatal de trabajo… No te preocupes, ya lo vemos más adelante :)",
+  "result": {
+   "verdict": "Beruhigt, aber vertagt",
+   "meaning": "Die Person ist diese Woche beruflich stark eingespannt und schiebt das Thema ohne konkreten Termin auf später.",
+   "flags": [
+    "Beruhigt, schiebt aber auf",
+    "Kein konkreter neuer Termin",
+    "Stress durch Arbeit genannt"
+   ],
+   "guardrails": [
+    "Nicht sicher annehmen, dass es um fehlendes Interesse geht.",
+    "Nicht sicher annehmen, dass es bald einen neuen Termin gibt."
+   ],
+   "tones": {
+    "warmth": 65,
+    "clarity": 35,
+    "interest": 45,
+    "respect": 75,
+    "urgency": 10
+   },
+   "replies": [
+    {
+     "style": "Neutral",
+     "text": "Alles klar, kein Problem. Melde dich einfach, wenn die Woche vorbei ist y tengas un hueco."
+    },
+    {
+     "style": "Freundlich",
+     "text": "¡Ánimo con esa semana! Tómate el tiempo que necesites, y lo retomamos cuando te venga bien :)"
+    },
+    {
+     "style": "Locker",
+     "text": "Tranqui, que no hay prisa. Cuando respires un poco, me dices y lo vemos."
+    }
+   ],
+   "source": "image",
+   "input": "Uf, esta semana voy fatal de trabajo… No te preocupes, ya lo vemos más adelante :)",
+   "lang": "de",
+   "extracted_text": "Uf, esta semana voy fatal de trabajo… No te preocupes, ya lo vemos más adelante :)",
+   "extraction_confidence": 100
+  }
+ },
+ "send": {
+  "input": "Vale, pues ya me dirás tú, porque nunca entiendo lo que quieres",
+  "result": {
+   "score": 30,
+   "label": "Neu schreiben",
+   "issue": "Die Nachricht klingt vorwurfsvoll und passiv-aggressiv, und sie sagt nicht, was du konkret brauchst; dadurch fühlt sich die andere Person eher angegriffen als eingeladen zu antworten.",
+   "breakdown": {
+    "frustration": 75,
+    "clarity": 30,
+    "warmth": 15,
+    "pressure": 60
+   },
+   "rewrites": {
+    "clear": "Vale, no tengo claro qué es lo que quieres. ¿Me lo puedes explicar con otras palabras? Así sé cómo ayudarte.",
+    "warm": "Vale, creo que no te estoy entendiendo bien y quiero hacerlo. ¿Me cuentas con calma qué necesitas?",
+    "firm": "Vale, la verdad es que no entiendo qué quieres. Dime claramente qué necesitas y lo hablamos.",
+    "short": "Vale, no te sigo. ¿Qué es lo que quieres exactamente?"
+   },
+   "input": "Vale, pues ya me dirás tú, porque nunca entiendo lo que quieres",
+   "lang": "de"
+  }
+ }
+}

@@ -36,18 +36,21 @@ let gateState = {
 let capabilities = { text: true, voice: true, image: true };
 let remainingAnalyses = null;
 
-// Demo examples in Spanish (the app is presented first in the Canary Islands): the reading follows the app
-// language, the ready-to-send replies stay in Spanish, the language of the message.
-const samples = {
-  decodeText: 'No te preocupes, ya lo vemos más adelante :)',
-  voiceTranscript: 'Hola, perdona que no te haya contestado antes, esta semana voy fatal de trabajo. Lo del sábado mejor lo dejamos para otro día, ¿vale? Ya te digo algo.',
-  screenshotText: 'Uf, esta semana voy fatal de trabajo… No te preocupes, ya lo vemos más adelante :)',
-  sendText: 'Vale, pues ya me dirás tú, porque nunca entiendo lo que quieres',
-};
-// Recording for the voice demo, if any: a 16 kHz WAV plays in every browser. None for now, so the demo fills in
-// the transcript of a Spanish voice note.
+// Free examples (samples/<lang>.json, built by tools/build_samples.py): Spanish messages (the app is presented
+// first in the Canary Islands) with results already analyzed in each app language. They are shown without calling
+// the server, so an example never uses up an analysis; analyzing an example's text unchanged shows it again.
+let examples = null; // { lang, data }
+// Recording for the voice demo, if any: a 16 kHz WAV plays in every browser. None for now: the voice example
+// shows the transcript of a Spanish voice note.
 const DEMO_VOICE = '';
-let demoVoice = null; // the demo recording as a File, sent like an upload while the demo is loaded
+// From this many analyses left, the Home and each new result say how many remain.
+const LOW_QUOTA = 5;
+// One analysis at a time: the buttons are locked while one runs, so a double tap does not use up two analyses.
+let analysisBusy = false;
+const ANALYSIS_BUTTONS = [
+  '#decodeTextAnalyze', '#decodeVoiceAnalyze', '#decodeImageAnalyze', '#sendAnalyze',
+  '#decodeTextSample', '#useDemoVoice', '#useDemoScreenshot', '#sendSample', '#runQuickDemo',
+];
 
 init();
 
@@ -121,8 +124,9 @@ function openContact() {
   window.location.href = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('Before You Send')}`;
 }
 
-function setGateError(message = '') {
+function setGateError(message = '', { contact = false } = {}) {
   const target = $('#gateError');
+  $('#gateContactBtn')?.classList.toggle('hidden', !(message && contact));
   if (!target) return;
   if (!message) {
     target.textContent = '';
@@ -131,6 +135,16 @@ function setGateError(message = '') {
   }
   target.textContent = message;
   target.classList.remove('hidden');
+}
+
+// Code used up or no longer active: detail.reason from the server is "exhausted", "expired" or "revoked".
+function trialEndedTitle(reason) {
+  return t(reason === 'exhausted' ? 'trial.used_up.title' : 'trial.inactive.title');
+}
+
+function trialEndedMessage(detail) {
+  if (!detail.reason) return detail.message || t('error.trial_ended');
+  return `${trialEndedTitle(detail.reason)}. ${t('trial.next')}`;
 }
 
 function syncGateUI() {
@@ -201,7 +215,9 @@ async function unlockGate() {
       const detail = errorDetail(data);
       if (detail && detail.code === 'trial_ended') {
         if (detail.accessPage) gateState.accessPage = detail.accessPage;
-        throw new Error(detail.message || t('error.trial_ended'));
+        const ended = new Error(trialEndedMessage(detail));
+        ended.showAccess = true;
+        throw ended;
       }
       if (res.status === 429) throw new Error(t('error.rate_limited'));
       if (res.status === 403 || res.status === 422) throw new Error(t('gate.error.invalid'));
@@ -214,7 +230,7 @@ async function unlockGate() {
     checkApiHealth();
     setTimeout(openInitialScreen, 120);
   } catch (error) {
-    setGateError(error.message || t('gate.error.invalid'));
+    setGateError(error.message || t('gate.error.invalid'), { contact: Boolean(error.showAccess) });
   } finally {
     if (button) {
       button.disabled = false;
@@ -224,6 +240,8 @@ async function unlockGate() {
 }
 
 async function lockGate() {
+  // Without the code (it came by email) there is no way back in: ask first.
+  if (!window.confirm(t('confirm.lock'))) return;
   try {
     await fetch('/api/access/logout', { method: 'POST' });
   } catch {}
@@ -240,6 +258,7 @@ function bindGate() {
     }
   });
   $('#openAccessPageBtn')?.addEventListener('click', openAccessPage);
+  $('#gateContactBtn')?.addEventListener('click', openContact);
 }
 
 function errorDetail(data) {
@@ -306,8 +325,10 @@ function applyTranslations() {
   renderQuota();
   renderHistory();
   renderStats();
-  if (latestDecodeResult) renderDecodeResult(latestDecodeResult, latestDecodeResult.source || 'text', latestDecodeResult.input || '');
-  if (latestSendResult) renderSendResult(latestSendResult, latestSendResult.input || '');
+  $$('.field-hint').forEach((hint) => hint.classList.add('hidden'));
+  // An example on screen comes back in the new language from setLanguage().
+  if (latestDecodeResult && !latestDecodeResult.example) renderDecodeResult(latestDecodeResult, latestDecodeResult.source || 'text', latestDecodeResult.input || '');
+  if (latestSendResult && !latestSendResult.example) renderSendResult(latestSendResult, latestSendResult.input || '');
 }
 
 function bindLanguageSelectors() {
@@ -316,18 +337,19 @@ function bindLanguageSelectors() {
   });
 }
 
-function setLanguage(lang) {
+async function setLanguage(lang) {
   currentLang = LANGS.includes(lang) ? lang : 'it';
   localStorage.setItem(STORE.lang, currentLang);
   applyTranslations();
   if (!gateState.enabled || gateState.unlocked) checkApiHealth();
+  const shown = [latestDecodeResult, latestSendResult].filter((result) => result?.example);
+  if (shown.length && await useExamples()) shown.forEach((result) => showExample(result.example));
 }
 
 function bindNavigation() {
   $$('[data-open]:not(.nav-btn)').forEach((btn) => btn.addEventListener('click', () => openScreen(btn.dataset.open)));
   $$('[data-back]').forEach((btn) => btn.addEventListener('click', () => openScreen(btn.dataset.back)));
   $$('.nav-btn').forEach((btn) => btn.addEventListener('click', () => openScreen(btn.dataset.open)));
-  $('#resetAllBtn')?.addEventListener('click', hardReset);
 }
 
 function bindOnboarding() {
@@ -338,84 +360,85 @@ function bindOnboarding() {
 }
 
 function bindHome() {
-  $('#runQuickDemo')?.addEventListener('click', async () => {
-    $('#decodeTextInput').value = samples.decodeText;
+  $('#runQuickDemo')?.addEventListener('click', () => withAnalysisLock(async () => {
     setDecodeMode('text');
     openScreen('screen-decode', { scrollTop: false, restoreScroll: false });
-    await runDecodeText(samples.decodeText);
-  });
+    await fillExample('decodeText', '#decodeTextInput');
+  }));
 }
 
 function bindDecode() {
   $$('.tab').forEach((tab) => tab.addEventListener('click', () => setDecodeMode(tab.dataset.decodeMode)));
-  $('#decodeTextSample')?.addEventListener('click', () => $('#decodeTextInput').value = samples.decodeText);
-  $('#decodeTextAnalyze')?.addEventListener('click', async () => {
-    const text = $('#decodeTextInput').value.trim() || samples.decodeText;
+  $('#decodeTextSample')?.addEventListener('click', () => withAnalysisLock(() => fillExample('decodeText', '#decodeTextInput')));
+  $('#decodeTextAnalyze')?.addEventListener('click', () => withAnalysisLock(async () => {
+    const field = $('#decodeTextInput');
+    const text = field.value.trim();
+    if (!text) return showFieldHint(field, t('hint.decode_empty'));
+    if (isExampleInput('decodeText', text)) return showExample('decodeText');
     await runDecodeText(text);
-  });
+  }));
 
-  // Demo: with a recording (DEMO_VOICE) and transcription on, the recording is sent like an upload, so the demo
-  // shows the real transcription; otherwise the transcript of the demo voice note is filled in. A file chosen
-  // before is cleared.
-  $('#useDemoVoice')?.addEventListener('click', async () => {
+  // Voice example: the transcript of a Spanish voice note (and the recording, if DEMO_VOICE is set) with its ready
+  // result. A file chosen before is cleared.
+  $('#useDemoVoice')?.addEventListener('click', () => withAnalysisLock(async () => {
+    if (!await fillExample('voice', '#voiceTranscript')) return;
     const upload = $('#voiceUpload');
     if (upload) upload.value = '';
     const player = $('#voicePlayer');
     player.pause();
-    $('#voiceTranscript').value = '';
-    demoVoice = null;
-    if (DEMO_VOICE && capabilities.voice) {
-      try {
-        const res = await fetch(DEMO_VOICE);
-        if (!res.ok) throw new Error(String(res.status));
-        demoVoice = new File([await res.blob()], DEMO_VOICE.split('/').pop(), { type: 'audio/wav' });
-      } catch {
-        demoVoice = null;
-      }
-    }
-    if (demoVoice) {
+    if (DEMO_VOICE) {
       player.src = DEMO_VOICE;
       player.classList.remove('hidden');
     } else {
       player.removeAttribute('src');
       player.classList.add('hidden');
-      $('#voiceTranscript').value = samples.voiceTranscript;
     }
-  });
+  }));
 
   $('#voiceUpload')?.addEventListener('change', (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    demoVoice = null;
+    // A typed transcript is analyzed instead of the file: the example's one must not hide the user's voice note.
+    const transcript = $('#voiceTranscript');
+    if (isExampleInput('voice', transcript.value.trim())) transcript.value = '';
+    clearFieldHint(transcript);
     const player = $('#voicePlayer');
     player.src = URL.createObjectURL(file);
     player.classList.remove('hidden');
   });
 
-  $('#decodeVoiceAnalyze')?.addEventListener('click', async () => { await runDecodeVoice(); });
+  $('#decodeVoiceAnalyze')?.addEventListener('click', () => withAnalysisLock(runDecodeVoice));
 
-  $('#useDemoScreenshot')?.addEventListener('click', () => {
-    $('#imageExtractedText').value = samples.screenshotText;
+  $('#useDemoScreenshot')?.addEventListener('click', () => withAnalysisLock(async () => {
+    if (!await fillExample('image', '#imageExtractedText')) return;
+    const upload = $('#imageUpload');
+    if (upload) upload.value = '';
     $('#imagePreview').src = 'assets/chat_demo_final.png';
     $('#imagePreview').classList.remove('hidden');
-  });
+  }));
 
   $('#imageUpload')?.addEventListener('change', (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const extracted = $('#imageExtractedText');
+    if (isExampleInput('image', extracted.value.trim())) extracted.value = '';
+    clearFieldHint(extracted);
     $('#imagePreview').src = URL.createObjectURL(file);
     $('#imagePreview').classList.remove('hidden');
   });
 
-  $('#decodeImageAnalyze')?.addEventListener('click', async () => { await runDecodeImage(); });
+  $('#decodeImageAnalyze')?.addEventListener('click', () => withAnalysisLock(runDecodeImage));
 }
 
 function bindSendScore() {
-  $('#sendSample')?.addEventListener('click', () => $('#sendInput').value = samples.sendText);
-  $('#sendAnalyze')?.addEventListener('click', async () => {
-    const text = $('#sendInput').value.trim() || samples.sendText;
+  $('#sendSample')?.addEventListener('click', () => withAnalysisLock(() => fillExample('send', '#sendInput')));
+  $('#sendAnalyze')?.addEventListener('click', () => withAnalysisLock(async () => {
+    const field = $('#sendInput');
+    const text = field.value.trim();
+    if (!text) return showFieldHint(field, t('hint.send_empty'));
+    if (isExampleInput('send', text)) return showExample('send');
     await runSendAnalysis(text);
-  });
+  }));
 }
 
 function bindSettings() {
@@ -423,8 +446,11 @@ function bindSettings() {
     localStorage.removeItem(STORE.onboarding);
     openScreen('screen-onboarding-1');
   });
-  $('#hardResetBtn')?.addEventListener('click', hardReset);
+  $('#hardResetBtn')?.addEventListener('click', () => {
+    if (window.confirm(t('confirm.reset'))) hardReset();
+  });
   $('#clearHistoryBtn')?.addEventListener('click', () => {
+    if (!historyLog.length || !window.confirm(t('confirm.clearHistory'))) return;
     historyLog = [];
     persistHistory();
     renderHistory();
@@ -432,6 +458,85 @@ function bindSettings() {
   });
   $('#refreshApiHealth')?.addEventListener('click', checkApiHealth);
   $('#lockAccessBtn')?.addEventListener('click', lockGate);
+  $('#trialContactBtn')?.addEventListener('click', openContact);
+}
+
+// --- free examples and the one-analysis-at-a-time lock -----------------------------------------------------------
+
+async function withAnalysisLock(task) {
+  if (analysisBusy) return;
+  analysisBusy = true;
+  ANALYSIS_BUTTONS.forEach((sel) => { const btn = $(sel); if (btn) btn.disabled = true; });
+  try {
+    await task();
+  } finally {
+    analysisBusy = false;
+    ANALYSIS_BUTTONS.forEach((sel) => { const btn = $(sel); if (btn) btn.disabled = false; });
+  }
+}
+
+// The examples of the current language, loaded once; null (with the error shown) when they cannot be loaded.
+async function useExamples(errorTarget = null) {
+  if (examples?.lang === currentLang) return examples.data;
+  const lang = currentLang;
+  try {
+    const res = await fetch(`samples/${lang}.json`);
+    if (!res.ok) throw new Error(String(res.status));
+    examples = { lang, data: await res.json() };
+    return examples.data;
+  } catch {
+    if (errorTarget) renderErrorCard(errorTarget, t('error.decode'), t('error.network'));
+    return null;
+  }
+}
+
+// Puts an example's text in the field and shows its ready result.
+async function fillExample(kind, fieldSel) {
+  const data = await useExamples($(kind === 'send' ? '#sendResult' : '#decodeResult'));
+  if (!data?.[kind]) return false;
+  const field = $(fieldSel);
+  field.value = data[kind].input;
+  clearFieldHint(field);
+  showExample(kind);
+  return true;
+}
+
+function isExampleInput(kind, value) {
+  return Boolean(value) && examples?.data?.[kind]?.input === value;
+}
+
+function showExample(kind) {
+  const example = examples?.data?.[kind];
+  if (!example) return;
+  const result = { ...example.result, example: kind };
+  if (kind === 'send') {
+    latestSendResult = result;
+    renderSendResult(result, example.input);
+  } else {
+    latestDecodeResult = result;
+    renderDecodeResult(result, result.source || 'text', example.input);
+  }
+}
+
+// A short hint under an empty field, instead of an analysis.
+function showFieldHint(field, message) {
+  if (!field) return;
+  let hint = field.nextElementSibling;
+  if (!hint?.classList.contains('field-hint')) {
+    hint = document.createElement('p');
+    hint.className = 'field-hint';
+    hint.setAttribute('role', 'alert');
+    field.insertAdjacentElement('afterend', hint);
+    field.addEventListener('input', () => clearFieldHint(field));
+  }
+  hint.textContent = message;
+  hint.classList.remove('hidden');
+  field.focus();
+}
+
+function clearFieldHint(field) {
+  const hint = field?.nextElementSibling;
+  if (hint?.classList.contains('field-hint')) hint.classList.add('hidden');
 }
 
 async function checkApiHealth() {
@@ -501,16 +606,20 @@ function updateRemainingFromResponse(res) {
   if (raw !== null && /^\d+$/.test(raw)) setRemaining(Number(raw));
 }
 
+// Analyses left on the Home: a warning from LOW_QUOTA down, and the end-of-trial card at 0.
 function renderQuota() {
   const target = $('#quotaInfo');
   if (!target) return;
-  if (remainingAnalyses === null) {
+  const n = remainingAnalyses;
+  $('#trialEndedHome')?.classList.toggle('hidden', n !== 0);
+  if (n === 0) $('#trialEndedTitle').textContent = trialEndedTitle('exhausted');
+  if (n === null || n === 0) {
     target.textContent = '';
     target.classList.add('hidden');
     return;
   }
-  const n = remainingAnalyses;
-  target.textContent = n === 0 ? t('home.quota.none') : n === 1 ? t('home.quota.one') : t('home.quota.left', { n });
+  target.textContent = n === 1 ? t('home.quota.one') : n <= LOW_QUOTA ? t('home.quota.low', { n }) : t('home.quota.left', { n });
+  target.classList.toggle('warn', n <= LOW_QUOTA);
   target.classList.remove('hidden');
 }
 
@@ -606,7 +715,7 @@ async function runDecodeText(text) {
   try {
     const result = await apiJson('/api/decode/text', { text, lang: currentLang });
     latestDecodeResult = result;
-    renderDecodeResult(result, 'text', text);
+    renderDecodeResult(result, 'text', text, { fresh: true });
     saveHistory({
       type: 'decode', title: result.verdict, subtitle: sourceLabel('text'), createdAt: new Date().toISOString(),
       payload: { ...result, source: 'text', input: text },
@@ -617,29 +726,33 @@ async function runDecodeText(text) {
 }
 
 async function runDecodeVoice() {
+  const field = $('#voiceTranscript');
+  const file = capabilities.voice ? $('#voiceUpload')?.files?.[0] : null;
+  const transcript = field?.value?.trim();
+  if (!file && !transcript) return showFieldHint(field, t('error.voice_missing'));
+  if (!file && isExampleInput('voice', transcript)) return showExample('voice');
   showLoadingDecode(t('results.loading.voice'));
   try {
     const form = new FormData();
-    const file = capabilities.voice ? ($('#voiceUpload')?.files?.[0] || demoVoice) : null;
-    const transcript = $('#voiceTranscript')?.value?.trim();
     if (file) form.append('file', file);
     if (transcript) form.append('transcript', transcript);
     form.append('lang', currentLang);
-    if (!file && !transcript) throw new Error(t('error.voice_missing'));
     const result = await apiForm('/api/decode/audio', form);
     latestDecodeResult = result;
-    renderDecodeResult(result, 'voice', result.transcript || transcript || '');
+    renderDecodeResult(result, 'voice', result.transcript || transcript || '', { fresh: true });
     saveHistory({ type:'decode', title: result.verdict, subtitle: sourceLabel('voice'), createdAt: new Date().toISOString(), payload: { ...result, source:'voice', input: result.transcript || transcript || '' } });
   } catch (error) { showDecodeError(error); }
 }
 
 async function runDecodeImage() {
+  const field = $('#imageExtractedText');
+  const file = $('#imageUpload')?.files?.[0];
+  const extractedText = field?.value?.trim();
+  if (!file && !extractedText) return showFieldHint(field, t('error.image_missing'));
+  if (!file && isExampleInput('image', extractedText)) return showExample('image');
   showLoadingDecode(t('results.loading.image'));
   try {
     const form = new FormData();
-    const file = $('#imageUpload')?.files?.[0];
-    const extractedText = $('#imageExtractedText')?.value?.trim();
-    if (!file && !extractedText) throw new Error(t('error.image_missing'));
     if (file) {
       const upload = await prepareImageUpload(file);
       form.append('file', upload, upload.name || 'screenshot.jpg');
@@ -648,7 +761,7 @@ async function runDecodeImage() {
     form.append('lang', currentLang);
     const result = await apiForm('/api/decode/image', form);
     latestDecodeResult = result;
-    renderDecodeResult(result, 'image', result.extracted_text || extractedText || '');
+    renderDecodeResult(result, 'image', result.extracted_text || extractedText || '', { fresh: true });
     saveHistory({ type:'decode', title: result.verdict, subtitle: sourceLabel('image'), createdAt: new Date().toISOString(), payload: { ...result, source:'image', input: result.extracted_text || extractedText || '' } });
   } catch (error) { showDecodeError(error); }
 }
@@ -658,7 +771,7 @@ async function runSendAnalysis(text) {
   try {
     const result = await apiJson('/api/score/text', { text, lang: currentLang });
     latestSendResult = result;
-    renderSendResult(result, text);
+    renderSendResult(result, text, { fresh: true });
     saveHistory({ type:'send', title:`${result.score}/100 — ${result.label}`, subtitle:t('send.title'), createdAt:new Date().toISOString(), payload: result });
   } catch (error) { showSendError(error); }
 }
@@ -730,8 +843,9 @@ function apiError(status, data) {
   const detail = errorDetail(data);
   if (detail && detail.code === 'trial_ended') {
     if (detail.accessPage) gateState.accessPage = detail.accessPage;
-    const error = new Error(detail.message || t('error.trial_ended'));
+    const error = new Error(trialEndedMessage(detail));
     error.showAccess = true;
+    error.trialEnded = detail.reason || null;
     return error;
   }
   // Errors raised by the endpoints carry a message localized by the server.
@@ -765,15 +879,31 @@ function showDecodeError(error) { renderErrorCard($('#decodeResult'), t('error.d
 function showSendError(error) { renderErrorCard($('#sendResult'), t('error.send'), error); }
 function renderErrorCard(target, title, error) {
   const message = typeof error === 'string' ? error : (error?.message || t('error.generic'));
-  // Trial ended (one code per email): the way to continue is to write to us.
-  const contactButton = error?.showAccess ? `<button class="ghost" data-contact>${escapeHTML(t('error.contact'))}</button>` : '';
-  target.classList.remove('hidden');
-  target.innerHTML = `<section class="card error-card"><strong>${escapeHTML(title)}</strong><p>${escapeHTML(message)}</p>${contactButton}</section>`;
+  // Trial ended (one code per email): not an error, the way to continue is to write to us.
+  if (error?.trialEnded) {
+    target.classList.remove('hidden');
+    target.innerHTML = `<section class="card trial-card" role="status"><strong>${escapeHTML(trialEndedTitle(error.trialEnded))}</strong><p>${escapeHTML(t('trial.next'))}</p><button class="primary" data-contact>${escapeHTML(t('error.contact'))}</button></section>`;
+  } else {
+    const contactButton = error?.showAccess ? `<button class="ghost" data-contact>${escapeHTML(t('error.contact'))}</button>` : '';
+    target.classList.remove('hidden');
+    target.innerHTML = `<section class="card error-card"><strong>${escapeHTML(title)}</strong><p>${escapeHTML(message)}</p>${contactButton}</section>`;
+  }
   target.querySelector('[data-contact]')?.addEventListener('click', openContact);
   scrollSectionIntoView(target);
 }
 
-function renderDecodeResult(result, source, text) {
+// Above a result: an example says it used no analysis; a new analysis says how many are left from LOW_QUOTA down.
+function resultNotice(result, fresh) {
+  let message = '';
+  if (result.example) message = t('results.exampleNote');
+  else if (fresh && remainingAnalyses !== null && remainingAnalyses <= LOW_QUOTA) {
+    const n = remainingAnalyses;
+    message = n === 0 ? t('quota.notice.last') : n === 1 ? t('quota.notice.one') : t('quota.notice.left', { n });
+  }
+  return message ? `<p class="result-notice${result.example ? '' : ' warn'}" role="status">${escapeHTML(message)}</p>` : '';
+}
+
+function renderDecodeResult(result, source, text, { fresh = false } = {}) {
   const target = $('#decodeResult');
   target.classList.remove('hidden');
   const extractedBlock = source === 'image' && result.extracted_text
@@ -781,11 +911,13 @@ function renderDecodeResult(result, source, text) {
     : source === 'voice' && result.transcript
     ? `<section class="card stack-sm"><strong>${escapeHTML(t('results.transcript'))}</strong><p class="muted">${escapeHTML(result.transcript)}</p></section>`
     : '';
+  const eyebrow = result.example ? `${t('results.example')} · ${sourceLabel(source)}` : sourceLabel(source);
   target.innerHTML = `
+    ${resultNotice(result, fresh)}
     ${extractedBlock}
     <section class="card stack-sm">
       <div class="result-header">
-        <p class="eyebrow">${escapeHTML(sourceLabel(source))}</p>
+        <p class="eyebrow">${escapeHTML(eyebrow)}</p>
         <div class="result-block"><span class="result-kicker">${escapeHTML(t('results.verdict'))}</span><h2 class="result-title">${escapeHTML(result.verdict)}</h2></div>
         <div class="result-block"><span class="result-kicker">${escapeHTML(t('results.quick'))}</span><p class="muted">${escapeHTML(result.meaning)}</p></div>
       </div>
@@ -812,11 +944,12 @@ function renderDecodeResult(result, source, text) {
   scrollSectionIntoView(target);
 }
 
-function renderSendResult(result, text) {
+function renderSendResult(result, text, { fresh = false } = {}) {
   const target = $('#sendResult');
   target.classList.remove('hidden');
   currentRewriteMode = 'clear';
   target.innerHTML = `
+    ${resultNotice(result, fresh)}
     <section class="card stack-sm">
       <div class="score-wrap">
         <div class="score-ring" style="--deg:${Math.max(2, Math.min(100, result.score)) * 3.6}deg">

@@ -1,0 +1,147 @@
+{
+ "decodeText": {
+  "input": "No te preocupes, ya lo vemos más adelante :)",
+  "result": {
+   "verdict": "Rassicurante ma rimanda",
+   "meaning": "Ti dice di non preoccuparti e sposta la questione a un momento successivo, senza indicare quando.",
+   "flags": [
+    "Rassicura, ma rimanda",
+    "Nessuna data o momento preciso",
+    "Smile: tono leggero e disteso"
+   ],
+   "guardrails": [
+    "Non dare per scontato che il tema sia chiuso o poco importante.",
+    "Non assumere che ci sia un impegno concreto a riprenderlo."
+   ],
+   "tones": {
+    "warmth": 70,
+    "clarity": 30,
+    "interest": 40,
+    "respect": 75,
+    "urgency": 10
+   },
+   "replies": [
+    {
+     "style": "Neutra",
+     "text": "Vale, gracias. ¿Te parece si lo retomamos a finales de semana?"
+    },
+    {
+     "style": "Amichevole",
+     "text": "¡Gracias por la calma! :) Cuando te venga bien me dices y lo vemos."
+    },
+    {
+     "style": "Diretta",
+     "text": "Perfecto, pero prefiero dejarlo cerrado pronto. ¿Cuándo te va bien que lo hablemos?"
+    }
+   ],
+   "source": "text",
+   "input": "No te preocupes, ya lo vemos más adelante :)",
+   "lang": "it"
+  }
+ },
+ "voice": {
+  "input": "Hola, perdona que no te haya contestado antes, esta semana voy fatal de trabajo. Lo del sábado mejor lo dejamos para otro día, ¿vale? Ya te digo algo.",
+  "result": {
+   "verdict": "Scusa cortese, ma rimanda",
+   "meaning": "Si scusa per il ritardo, dice di essere sommerso dal lavoro e propone di rimandare il sabato senza fissare una nuova data.",
+   "flags": [
+    "Scusa per il ritardo nel rispondere",
+    "Sabato rimandato, nessuna data nuova",
+    "\"Ya te digo algo\": palla a lui, tempi aperti"
+   ],
+   "guardrails": [
+    "Non dare per scontato che il disinteresse sia il motivo: cita il lavoro.",
+    "Non dare per scontato che farà una nuova proposta: non ha promesso una data."
+   ],
+   "tones": {
+    "warmth": 55,
+    "clarity": 40,
+    "interest": 45,
+    "respect": 75,
+    "urgency": 10
+   },
+   "replies": [
+    {
+     "style": "Neutra",
+     "text": "Tranquilo, no pasa nada. Lo dejamos para otro día entonces. Cuando tengas un hueco me dices."
+    },
+    {
+     "style": "Amichevole",
+     "text": "¡Ningún problema! Ánimo con la semana de trabajo. Cuando respires un poco, me escribes y vemos."
+    },
+    {
+     "style": "Chiara",
+     "text": "Vale, sin problema. Si quieres, dentro de un par de semanas te escribo yo y miramos si nos viene bien algún día."
+    }
+   ],
+   "source": "voice",
+   "input": "Hola, perdona que no te haya contestado antes, esta semana voy fatal de trabajo. Lo del sábado mejor lo dejamos para otro día, ¿vale? Ya te digo algo.",
+   "lang": "it",
+   "transcript": "Hola, perdona que no te haya contestado antes, esta semana voy fatal de trabajo. Lo del sábado mejor lo dejamos para otro día, ¿vale? Ya te digo algo."
+  }
+ },
+ "image": {
+  "input": "Uf, esta semana voy fatal de trabajo… No te preocupes, ya lo vemos más adelante :)",
+  "result": {
+   "verdict": "Rassicura ma rimanda",
+   "meaning": "Questa settimana è molto occupata dal lavoro e propone di parlarne più avanti, senza dare una data.",
+   "flags": [
+    "Settimana molto carica",
+    "Rinvio senza data",
+    "Tono rassicurante con la faccina"
+   ],
+   "guardrails": [
+    "Non dare per scontato che sia disinteresse: parla di carico di lavoro.",
+    "Non dare per scontato che il rinvio sia una promessa: manca un momento preciso."
+   ],
+   "tones": {
+    "warmth": 70,
+    "clarity": 40,
+    "interest": 50,
+    "respect": 80,
+    "urgency": 15
+   },
+   "replies": [
+    {
+     "style": "Neutra",
+     "text": "Tranquilo, sin prisa. Cuando tengas un hueco me dices y lo vemos."
+    },
+    {
+     "style": "Amichevole",
+     "text": "¡Ánimo con la semana! Descansa en cuanto puedas y ya lo hablamos más adelante :)"
+    },
+    {
+     "style": "Propositiva",
+     "text": "Gracias por avisarme. ¿Te parece si lo retomamos el próximo fin de semana? Si no te va bien, no pasa nada."
+    }
+   ],
+   "source": "image",
+   "input": "Uf, esta semana voy fatal de trabajo… No te preocupes, ya lo vemos más adelante :)",
+   "lang": "it",
+   "extracted_text": "Uf, esta semana voy fatal de trabajo… No te preocupes, ya lo vemos más adelante :)",
+   "extraction_confidence": 100
+  }
+ },
+ "send": {
+  "input": "Vale, pues ya me dirás tú, porque nunca entiendo lo que quieres",
+  "result": {
+   "score": 28,
+   "label": "Da riscrivere",
+   "issue": "Il tono è sarcastico e accusatorio: dire \"non capisco mai quello che vuoi\" mette l'altra persona sulla difensiva e non chiede nulla di concreto.",
+   "breakdown": {
+    "frustration": 82,
+    "clarity": 35,
+    "warmth": 15,
+    "pressure": 60
+   },
+   "rewrites": {
+    "clear": "Vale, no tengo claro qué quieres exactamente. ¿Me lo explicas con otras palabras y así lo vemos?",
+    "warm": "Vale, creo que no te estoy entendiendo bien y quiero acertar. ¿Me cuentas qué te gustaría?",
+    "firm": "Vale, pero necesito que me digas claramente qué quieres. Si no, me cuesta saber cómo ayudarte.",
+    "short": "Vale, dime claro qué quieres y lo miro."
+   },
+   "input": "Vale, pues ya me dirás tú, porque nunca entiendo lo que quieres",
+   "lang": "it"
+  }
+ }
+}

@@ -1,8 +1,8 @@
-// Network first for the app shell (navigations, HTML, JS, CSS, locales), with the cache as
-// the offline fallback; cache first only for icons and images. /api/ and /admin/ are never
-// cached, and neither is any non-OK response. The 2.6 MB demo voice note is not precached:
-// the audio element loads it on demand.
-const CACHE = 'bys-v4-claude-vps-2';
+// Network first for the app shell (navigations, HTML, JS, CSS, locales, free examples), with
+// the cache as the offline fallback; cache first only for icons and images. /api/ and /admin/
+// are never cached, and neither is any non-OK response. The 2.6 MB demo voice note is not
+// precached: the audio element loads it on demand.
+const CACHE = 'bys-v5-usability-1';
 const PRECACHE = [
   './',
   './index.html',
@@ -15,6 +15,12 @@ const PRECACHE = [
   './locales/fr.json',
   './locales/de.json',
   './locales/ru.json',
+  './samples/it.json',
+  './samples/en.json',
+  './samples/es.json',
+  './samples/fr.json',
+  './samples/de.json',
+  './samples/ru.json',
   './assets/icon-192.png',
   './assets/icon-512.png',
   './assets/chat_demo_final.png',
