@@ -554,3 +554,56 @@ button:disabled:active { transform: none; }
   text-align: left;
 }
 .trial-card p { margin: 0; color: var(--soft); }
+
+/* Texts stay hidden until they are translated: no flash of the HTML's own language while the app opens. */
+html.i18n-pending [data-i18n] { visibility: hidden; }
+
+/* Home: the two functions first, the analyses left in view. */
+.home-stack { gap: 12px; }
+.quota-pill {
+  justify-self: start;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(124,149,255,0.28);
+  background: rgba(124,149,255,0.12);
+  color: var(--soft);
+  font-size: .95rem;
+  font-weight: 600;
+}
+.quota-pill.warn { color: #ffe7b0; border-color: rgba(255,214,124,.3); background: rgba(255,214,124,.10); }
+.service-notice {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255,106,106,.28);
+  background: rgba(255,106,106,.10);
+}
+.service-notice p { margin: 0; color: #ffd9d9; font-size: .92rem; }
+.feature.big { gap: 14px; padding: 20px 16px; min-height: 96px; }
+.feature.big > div { flex: 1; }
+.feature.big h3 { font-size: 1.15rem; }
+.feature-icon {
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  font-size: 1.5rem;
+  background: rgba(124,149,255,0.16);
+}
+.example-btn { width: 100%; }
+.home-privacy { text-align: center; padding: 0 8px; }
+.topbar .lang-picker select { min-width: 0; }
+
+/* «Message you are replying to», optional and closed by default. */
+details.reply-to summary {
+  cursor: pointer;
+  color: var(--primary-2);
+  font-size: .95rem;
+  padding: 6px 2px;
+}
+details.reply-to textarea { min-height: 96px; margin-top: 8px; }

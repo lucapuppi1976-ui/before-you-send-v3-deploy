@@ -2,7 +2,7 @@
 // the cache as the offline fallback; cache first only for icons and images. /api/ and /admin/
 // are never cached, and neither is any non-OK response. The 2.6 MB demo voice note is not
 // precached: the audio element loads it on demand.
-const CACHE = 'bys-v5-usability-1';
+const CACHE = 'bys-v5-usability-2';
 const PRECACHE = [
   './',
   './index.html',

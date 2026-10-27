@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="it">
+<html lang="it" class="i18n-pending">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -115,75 +115,59 @@
   </section>
 
   <section id="screen-home" class="screen">
+    <!-- The two functions first, with the analyses left in view; everything else only when it is needed. -->
     <div class="topbar">
       <div class="brand">
-        <p class="eyebrow" data-i18n="home.eyebrow">PROVA GRATUITA</p>
+        <p class="eyebrow" id="homeEyebrow" data-i18n="home.eyebrow">PROVA GRATUITA</p>
         <h1 data-i18n="app.name">Before You Send</h1>
       </div>
+      <div class="lang-picker compact">
+        <label for="langSelectHome" class="visually-hidden" data-i18n="lang.label">Lingua</label>
+        <select id="langSelectHome">
+          <option value="it">Italiano</option>
+          <option value="en">English</option>
+          <option value="es">Español</option>
+          <option value="fr">Français</option>
+          <option value="de">Deutsch</option>
+          <option value="ru">Русский</option>
+        </select>
+      </div>
     </div>
 
-    <div id="installBanner" class="card install-banner hidden">
-      <div>
-        <strong data-i18n="home.install.title">Installala sul telefono</strong>
-        <p class="caption" data-i18n="home.install.p">Aggiungila alla Home per provarla come una vera app.</p>
-      </div>
-      <button class="primary small" id="installBtn" data-i18n="home.install.cta">Installa</button>
-    </div>
-
-    <section class="hero card stack-sm">
-      <div class="between lang-row">
-        <h2 data-i18n="home.hero.h2">Capisci cosa voleva dire davvero. Controlla come suona il tuo messaggio prima di inviarlo.</h2>
-        <div class="lang-picker compact">
-          <label for="langSelectHome" class="visually-hidden" data-i18n="lang.label">Lingua</label>
-          <select id="langSelectHome">
-            <option value="it">Italiano</option>
-            <option value="en">English</option>
-            <option value="es">Español</option>
-            <option value="fr">Français</option>
-            <option value="de">Deutsch</option>
-            <option value="ru">Русский</option>
-          </select>
-        </div>
-      </div>
-      <p data-i18n="home.hero.p">Prova messaggi, vocali e screenshot direttamente dal telefono. Risponde in pochi secondi.</p>
-      <div id="apiStatusBadge" class="badge waiting" data-health-badge>Controllo in corso…</div>
-      <div id="apiStatusDetail" class="caption muted" data-health-detail>Verifica della connessione AI…</div>
-      <div id="quotaInfo" class="caption hidden" aria-live="polite"></div>
+    <div class="stack home-stack">
+      <div id="quotaInfo" class="quota-pill hidden" aria-live="polite"></div>
       <div id="trialEndedHome" class="trial-card hidden" role="status">
         <strong id="trialEndedTitle"></strong>
         <p data-i18n="trial.next">Vuoi continuare a usare Before You Send? Scrivici e ti spieghiamo come.</p>
         <button class="primary" id="trialContactBtn" data-i18n="error.contact">Scrivici</button>
       </div>
-      <div class="actions" style="margin-top:8px;">
-        <button class="ghost small" id="refreshApiHealth" data-i18n="home.health.refresh">Controlla connessione</button>
-        <button class="ghost small" id="runQuickDemo" data-i18n="home.quickdemo">Prova subito</button>
+      <div id="serviceNotice" class="service-notice hidden" role="alert">
+        <p id="serviceNoticeText"></p>
+        <button class="ghost small" id="refreshApiHealth" data-i18n="home.service.retry">Riprova</button>
       </div>
-    </section>
 
-    <section class="grid-2">
-      <div class="stat">
-        <div class="num" id="statAnalyses">0</div>
-        <div class="lbl" data-i18n="home.stat.analyses">Analisi salvate</div>
-      </div>
-      <div class="stat">
-        <div class="num" id="statLastMode">—</div>
-        <div class="lbl" data-i18n="home.stat.lastmode">Ultima modalità</div>
-      </div>
-    </section>
-
-    <section class="stack">
-      <button class="feature card" data-open="screen-decode">
-        <div><h3 data-i18n="home.card.decode.title">Capisci cosa voleva dire</h3><p data-i18n="home.card.decode.p">Messaggi, vocali e screenshot</p></div><span class="chev">→</span>
+      <button class="feature card big" data-open="screen-decode">
+        <span class="feature-icon" aria-hidden="true">💬</span>
+        <div><h3 data-i18n="home.card.decode.title">Capisci cosa voleva dire</h3><p data-i18n="home.card.decode.p">Messaggi, vocali e screenshot</p></div>
+        <span class="chev" aria-hidden="true">→</span>
       </button>
-      <button class="feature card" data-open="screen-send">
-        <div><h3 data-i18n="home.card.send.title">Controlla come suona</h3><p data-i18n="home.card.send.p">Valuta il tono del messaggio prima di inviarlo</p></div><span class="chev">→</span>
+      <button class="feature card big" data-open="screen-send">
+        <span class="feature-icon" aria-hidden="true">✍️</span>
+        <div><h3 data-i18n="home.card.send.title">Controlla come suona</h3><p data-i18n="home.card.send.p">Valuta il tono del messaggio prima di inviarlo</p></div>
+        <span class="chev" aria-hidden="true">→</span>
       </button>
-    </section>
+      <button class="ghost example-btn" id="runQuickDemo" data-i18n="home.quickdemo">Guarda un esempio</button>
 
-    <section class="card stack-sm">
-      <strong data-i18n="home.fast.title">Il modo più veloce per provarla</strong>
-      <p class="small muted" data-i18n="home.fast.p">1. Prova un messaggio ricevuto. 2. Controlla un messaggio da inviare. 3. Scarica la share card dal telefono.</p>
-    </section>
+      <div id="installBanner" class="card install-banner hidden">
+        <div>
+          <strong data-i18n="home.install.title">Installala sul telefono</strong>
+          <p class="caption" data-i18n="home.install.p">Aggiungila alla Home per provarla come una vera app.</p>
+        </div>
+        <button class="primary small" id="installBtn" data-i18n="home.install.cta">Installa</button>
+      </div>
+
+      <p class="caption home-privacy" data-i18n="home.privacy">I tuoi messaggi non restano sul nostro server e la cronologia resta su questo dispositivo.</p>
+    </div>
   </section>
 
   <section id="screen-decode" class="screen">
@@ -252,8 +236,11 @@
     </div>
 
     <section class="card stack-sm">
-      <div class="pill" data-i18n="send.context">Dopo che ha rimandato</div>
       <textarea id="sendInput" maxlength="6000" data-i18n-placeholder="send.placeholder" placeholder="Incolla qui il messaggio che stai per inviare" spellcheck="false" autocorrect="off" autocapitalize="sentences"></textarea>
+      <details class="reply-to" id="sendReplyToBox">
+        <summary data-i18n="send.replyTo.label">Aggiungi il messaggio a cui rispondi (facoltativo)</summary>
+        <textarea id="sendReplyTo" maxlength="6000" data-i18n-placeholder="send.replyTo.placeholder" placeholder="Incolla qui il messaggio che hai ricevuto: aiuta a valutare meglio la tua risposta." spellcheck="false" autocorrect="off" autocapitalize="sentences"></textarea>
+      </details>
       <div class="actions">
         <button class="ghost" id="sendSample" data-i18n="send.sample">Prova esempio</button>
         <button class="primary" id="sendAnalyze" data-i18n="send.analyze">Controlla il tono</button>
@@ -285,8 +272,8 @@
     <section class="card stack-sm">
       <div class="switch">
         <div>
-          <strong data-i18n="settings.onboarding.title">Rivedi onboarding</strong>
-          <p class="caption" data-i18n="settings.onboarding.p">Riapri il flusso introduttivo.</p>
+          <strong data-i18n="settings.onboarding.title">Rivedi l'introduzione</strong>
+          <p class="caption" data-i18n="settings.onboarding.p">Le tre schermate iniziali.</p>
         </div>
         <button class="ghost" id="rerunOnboarding" data-i18n="settings.open">Apri</button>
       </div>
@@ -300,7 +287,7 @@
       <div class="switch">
         <div>
           <strong data-i18n="lang.label">Lingua</strong>
-          <p class="caption">IT / EN / ES</p>
+          <p class="caption" data-i18n="settings.lang.p">Le risposte proposte seguono la lingua di ogni messaggio.</p>
         </div>
         <div class="lang-picker">
           <select id="langSelectSettings">
@@ -327,8 +314,15 @@
 
     <section class="card stack-sm">
       <strong data-i18n="settings.about.title">Come funziona</strong>
-      <p class="muted" data-i18n="settings.about.p">La usi dal telefono come una mini app. L’analisi arriva in pochi secondi.</p>
-      <p class="caption muted" data-i18n="settings.about.p2">Se qualcosa non funziona, puoi controllare lo stato della connessione dalla Home.</p>
+      <p class="muted" data-i18n="settings.about.p">Incolla un messaggio, uno screenshot o un vocale: in pochi secondi ti spiega cosa vuol dire e ti propone delle risposte.</p>
+      <p class="caption muted" data-i18n="onb3.notice">Testi e screenshot vengono analizzati da Anthropic (Claude), i vocali vengono trascritti da Groq. Il server di BYS non salva i tuoi contenuti e la cronologia resta solo su questo dispositivo.</p>
+    </section>
+
+    <section class="card stack-sm">
+      <div class="switch">
+        <strong data-i18n="settings.contact.title">Dubbi o problemi?</strong>
+        <button class="ghost" id="settingsContactBtn" data-i18n="error.contact">Scrivici</button>
+      </div>
     </section>
   </section>
 

@@ -167,6 +167,23 @@ def test_score_text_returns_the_shape_app_js_expects(unlocked, claude):
     assert label_schema["enum"] == ["Molto forte", "Buona base", "Da rivedere", "Da riscrivere"]
 
 
+def test_score_can_take_the_message_it_replies_to(unlocked, claude):
+    sent = {"text": "Ok, a las nueve.", "lang": "es", "reply_to": "¿Quedamos el sábado?"}
+    assert unlocked.post("/api/score/text", json=sent).status_code == 200
+    content = claude.last["messages"][0]["content"]
+    assert "<reply_to>\n¿Quedamos el sábado?\n</reply_to>" in content and "no lo evalúes" in content
+    assert content.index("</reply_to>") < content.index("<message>\nOk, a las nueve.\n</message>")
+    # Without it (or with only spaces) the request is the same as before.
+    assert unlocked.post("/api/score/text", json={**sent, "reply_to": "   "}).status_code == 200
+    assert claude.last["messages"][0]["content"] == "Mensaje para enviar:\n<message>\nOk, a las nueve.\n</message>"
+
+
+def test_reply_to_over_6000_characters_is_rejected(unlocked, claude):
+    response = unlocked.post("/api/score/text", json={"text": "ok", "lang": "en", "reply_to": "x" * 6001})
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "too_long"
+
+
 def test_normalization_clamps_and_fixes_list_lengths(unlocked, claude):
     claude.reply_with(
         text_reply(

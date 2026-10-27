@@ -87,7 +87,7 @@ def test_service_worker_rules():
 
 
 def test_text_inputs_match_the_server_limit():
-    for field in ("decodeTextInput", "voiceTranscript", "imageExtractedText", "sendInput"):
+    for field in ("decodeTextInput", "voiceTranscript", "imageExtractedText", "sendInput", "sendReplyTo"):
         assert re.search(rf'<textarea id="{field}" maxlength="6000"', INDEX), field
     assert 'maxlength="128"' in INDEX
 
@@ -133,6 +133,30 @@ def test_one_analysis_at_a_time():
         assert f"'#{button}'" in buttons, button
     for button in ("decodeTextAnalyze", "decodeVoiceAnalyze", "decodeImageAnalyze", "sendAnalyze"):
         assert re.search(rf"\$\('#{button}'\)\?\.addEventListener\('click', \(\) => withAnalysisLock\(", APP_JS), button
+
+
+def test_the_home_starts_with_the_two_functions():
+    home = re.search(r'<section id="screen-home".*?(?=<section id="screen-decode")', INDEX, flags=re.S).group(0)
+    decode, send = home.index('data-open="screen-decode"'), home.index('data-open="screen-send"')
+    assert decode < send < home.index('id="runQuickDemo"') < home.index('id="installBanner"')
+    # No technical connection check or counters: a notice appears only when the service has a problem.
+    for gone in ("apiStatusBadge", "statAnalyses", "statLastMode", "home.hero", "home.fast"):
+        assert gone not in INDEX, gone
+    assert 'id="serviceNotice"' in home and "showServiceNotice(" in APP_JS
+
+
+def test_texts_for_users_not_for_developers():
+    assert "IT / EN / ES" not in INDEX and 'data-i18n="send.context"' not in INDEX
+    for data in LOCALES.values():
+        assert not [key for key in data if key.startswith(("home.health.", "home.stat.", "misc."))]
+        assert "onboarding" not in data["settings.onboarding.title"].lower()
+    # The page's own (Italian) texts never flash while the app opens: hidden until translated.
+    assert re.search(r'<html lang="[a-z]+" class="i18n-pending">', INDEX)
+    assert "classList.remove('i18n-pending')" in APP_JS
+
+
+def test_the_score_can_include_the_message_it_replies_to():
+    assert 'id="sendReplyTo"' in INDEX and "reply_to: replyTo" in APP_JS
 
 
 def test_deleting_and_signing_out_ask_first():

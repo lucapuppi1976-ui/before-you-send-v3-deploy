@@ -66,7 +66,13 @@ function readEmailLink() {
 
 async function init() {
   const link = readEmailLink();
-  await loadLocales();
+  try {
+    await loadLocales();
+  } catch (error) {
+    // The texts stay hidden until they are translated (no Italian flash); without the locales show the page as is.
+    document.documentElement.classList.remove('i18n-pending');
+    throw error;
+  }
   if (LANGS.includes(link.lang)) {
     currentLang = link.lang;
     localStorage.setItem(STORE.lang, currentLang);
@@ -83,7 +89,6 @@ async function init() {
   registerSW();
   applyTranslations();
   renderHistory();
-  renderStats();
 
   await refreshGateStatus(false);
   if (gateState.enabled && !gateState.unlocked) {
@@ -315,6 +320,7 @@ function applyTranslations() {
   $$('[data-i18n-placeholder]').forEach((el) => {
     el.placeholder = t(el.dataset.i18nPlaceholder);
   });
+  document.documentElement.classList.remove('i18n-pending');
   const homeSel = $('#langSelectHome');
   const settingsSel = $('#langSelectSettings');
   const gateSel = $('#langSelectGate');
@@ -324,7 +330,6 @@ function applyTranslations() {
   syncGateUI();
   renderQuota();
   renderHistory();
-  renderStats();
   $$('.field-hint').forEach((hint) => hint.classList.add('hidden'));
   // An example on screen comes back in the new language from setLanguage().
   if (latestDecodeResult && !latestDecodeResult.example) renderDecodeResult(latestDecodeResult, latestDecodeResult.source || 'text', latestDecodeResult.input || '');
@@ -431,13 +436,19 @@ function bindDecode() {
 }
 
 function bindSendScore() {
-  $('#sendSample')?.addEventListener('click', () => withAnalysisLock(() => fillExample('send', '#sendInput')));
+  // The example has no message it replies to: that field is emptied and closed.
+  $('#sendSample')?.addEventListener('click', () => withAnalysisLock(async () => {
+    if (!await fillExample('send', '#sendInput')) return;
+    $('#sendReplyTo').value = '';
+    $('#sendReplyToBox').open = false;
+  }));
   $('#sendAnalyze')?.addEventListener('click', () => withAnalysisLock(async () => {
     const field = $('#sendInput');
     const text = field.value.trim();
+    const replyTo = $('#sendReplyTo').value.trim();
     if (!text) return showFieldHint(field, t('hint.send_empty'));
-    if (isExampleInput('send', text)) return showExample('send');
-    await runSendAnalysis(text);
+    if (!replyTo && isExampleInput('send', text)) return showExample('send');
+    await runSendAnalysis(text, replyTo);
   }));
 }
 
@@ -454,10 +465,10 @@ function bindSettings() {
     historyLog = [];
     persistHistory();
     renderHistory();
-    renderStats();
   });
   $('#refreshApiHealth')?.addEventListener('click', checkApiHealth);
   $('#lockAccessBtn')?.addEventListener('click', lockGate);
+  $('#settingsContactBtn')?.addEventListener('click', openContact);
   $('#trialContactBtn')?.addEventListener('click', openContact);
 }
 
@@ -539,15 +550,9 @@ function clearFieldHint(field) {
   if (hint?.classList.contains('field-hint')) hint.classList.add('hidden');
 }
 
+// The Home says something about the service only when there is a problem, with a way to try again.
 async function checkApiHealth() {
   if (gateState.enabled && !gateState.unlocked) return;
-  const badge = $('#apiStatusBadge');
-  const detail = $('#apiStatusDetail');
-  if (badge) {
-    badge.textContent = t('home.health.checking.badge');
-    badge.className = 'badge waiting';
-  }
-  if (detail) detail.textContent = t('home.health.checking.detail');
   try {
     // /api/health only says the server is up; the gated config tells what is available.
     const res = await fetch('/api/config');
@@ -559,26 +564,25 @@ async function checkApiHealth() {
     const data = await res.json();
     applyConfig(data);
     apiHealthy = capabilities.text;
-    if (badge) {
-      badge.textContent = apiHealthy ? t('home.health.ok.badge') : t('home.health.bad.badge');
-      badge.className = `badge ${apiHealthy ? 'success' : 'warn'}`;
-    }
-    if (detail) {
-      detail.textContent = apiHealthy ? t('home.health.ok.detail') : t('home.health.bad.detail');
-    }
+    showServiceNotice(apiHealthy ? '' : t('home.service.unavailable'));
   } catch (error) {
     apiHealthy = false;
-    if (badge) {
-      badge.textContent = t('home.health.off.badge');
-      badge.className = 'badge danger';
-    }
-    if (detail) detail.textContent = t('home.health.off.detail');
+    showServiceNotice(t('home.service.offline'));
   }
+}
+
+function showServiceNotice(message) {
+  const notice = $('#serviceNotice');
+  if (!notice) return;
+  $('#serviceNoticeText').textContent = message;
+  notice.classList.toggle('hidden', !message);
 }
 
 function applyConfig(data) {
   const supports = (data && data.supports) || {};
   capabilities = { text: supports.text !== false, voice: supports.voice !== false, image: supports.image !== false };
+  // "Free trial" only on trial codes: not for paid codes or the shared tester code.
+  $('#homeEyebrow')?.classList.toggle('hidden', (data && data.access && data.access.plan) !== 'trial');
   setRemaining(data && data.access ? data.access.remaining : null);
   applyCapabilities();
 }
@@ -766,10 +770,10 @@ async function runDecodeImage() {
   } catch (error) { showDecodeError(error); }
 }
 
-async function runSendAnalysis(text) {
+async function runSendAnalysis(text, replyTo = '') {
   showLoadingSend(t('results.loading.send'));
   try {
-    const result = await apiJson('/api/score/text', { text, lang: currentLang });
+    const result = await apiJson('/api/score/text', { text, lang: currentLang, ...(replyTo ? { reply_to: replyTo } : {}) });
     latestSendResult = result;
     renderSendResult(result, text, { fresh: true });
     saveHistory({ type:'send', title:`${result.score}/100 — ${result.label}`, subtitle:t('send.title'), createdAt:new Date().toISOString(), payload: result });
@@ -992,7 +996,7 @@ function displayLabel(key) { return t(LABEL_KEYS[key] || key); }
 function topSendChips(result) { return Object.entries(result.breakdown).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k,v])=>`${displayLabel(k)} ${v}`); }
 function metricRows(obj) { return Object.entries(obj).map(([key, value]) => `<div class="metric-row"><div class="label"><span>${escapeHTML(displayLabel(key))}</span><strong>${value}</strong></div><div class="bar"><div class="fill" style="width:${value}%"></div></div></div>`).join(''); }
 
-function saveHistory(entry) { historyLog.unshift(entry); historyLog = historyLog.slice(0, 30); persistHistory(); renderHistory(); renderStats(); }
+function saveHistory(entry) { historyLog.unshift(entry); historyLog = historyLog.slice(0, 30); persistHistory(); renderHistory(); }
 function renderHistory() {
   const target = $('#historyList');
   if (!historyLog.length) { target.innerHTML = `<div class="card empty-state">${escapeHTML(t('history.empty'))}</div>`; return; }
@@ -1006,7 +1010,6 @@ function shareFromHistory(index) {
   if (item.type === 'decode') { lastSharePayload = { title:item.payload.verdict, subtitle:item.payload.meaning, badge:sourceLabel(item.payload.source || 'text'), chips:item.payload.flags.slice(0,3), footer: t('share.footer'), type:'decode' }; downloadShareCard('bys_decode_share.png'); }
   else { lastSharePayload = { title:t('share.score',{score:item.payload.score}), subtitle:item.payload.issue, badge:item.payload.label, chips:topSendChips(item.payload), footer: t('share.footer'), type:'send' }; downloadShareCard('bys_sendscore_share.png'); }
 }
-function renderStats() { $('#statAnalyses').textContent = historyLog.length; $('#statLastMode').textContent = historyLog[0] ? (historyLog[0].type === 'decode' ? t('misc.received') : t('misc.send')) : '—'; }
 
 function downloadShareCard(filename) {
   if (!lastSharePayload) return;
@@ -1109,7 +1112,7 @@ function fitWrappedText(ctx, text, x, y, maxWidth, options = {}) {
 function wrapText(ctx, text, x, y, maxWidth, lineHeight) { const lines = wrapTextLines(ctx, text, maxWidth); lines.forEach((line, idx) => ctx.fillText(line, x, y + (idx * lineHeight))); }
 function sourceLabel(source) { return t(`source.${source}`); }
 function persistHistory(){ localStorage.setItem(STORE.history, JSON.stringify(historyLog)); }
-function hardReset(){ localStorage.removeItem(STORE.onboarding); localStorage.removeItem(STORE.history); localStorage.removeItem(STORE.settings); localStorage.removeItem(STORE.lang); historyLog=[]; currentLang = detectBrowserLang(); applyTranslations(); renderHistory(); renderStats(); if (gateState.enabled && !gateState.unlocked) { showGateScreen(''); return; } openScreen('screen-onboarding-1'); }
+function hardReset(){ localStorage.removeItem(STORE.onboarding); localStorage.removeItem(STORE.history); localStorage.removeItem(STORE.settings); localStorage.removeItem(STORE.lang); historyLog=[]; currentLang = detectBrowserLang(); applyTranslations(); renderHistory(); if (gateState.enabled && !gateState.unlocked) { showGateScreen(''); return; } openScreen('screen-onboarding-1'); }
 function loadJSON(key, fallback){ try{ return JSON.parse(localStorage.getItem(key)||'null') ?? fallback; }catch{ return fallback; } }
 function formatDate(iso){ try { return new Date(iso).toLocaleString(DATE_LOCALES[currentLang] || 'en-US', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }); } catch { return iso; } }
 async function copyText(text){ try{ await navigator.clipboard.writeText(text); } catch { const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); } }

@@ -114,10 +114,10 @@ def decode_image_request(image: bytes, media_type: str, lang: str) -> ClaudeRequ
     )
 
 
-def score_request(draft: str, lang: str) -> ClaudeRequest:
+def score_request(draft: str, lang: str, reply_to: Optional[str] = None) -> ClaudeRequest:
     return ClaudeRequest(
         system=prompts.score_system(lang),
-        messages=[{"role": "user", "content": prompts.user_text("score", lang, draft)}],
+        messages=[{"role": "user", "content": prompts.score_user_text(lang, draft, reply_to)}],
         schema=prompts.score_schema(lang),
     )
 
@@ -373,8 +373,10 @@ class Analyzer:
         call = self.run(decode_image_request(image, media_type, lang), **overrides)
         return normalize_decode(call.data, lang, include_extracted=True), call
 
-    def score_text(self, draft: str, lang: str, **overrides: Any) -> tuple[dict[str, Any], ClaudeResult]:
-        call = self.run(score_request(draft, lang), **overrides)
+    def score_text(
+        self, draft: str, lang: str, reply_to: Optional[str] = None, **overrides: Any
+    ) -> tuple[dict[str, Any], ClaudeResult]:
+        call = self.run(score_request(draft, lang, reply_to), **overrides)
         return normalize_score(call.data, lang, draft), call
 
 

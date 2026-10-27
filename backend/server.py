@@ -45,6 +45,11 @@ class TextPayload(BaseModel):
     lang: Optional[str] = Field(default="it", max_length=16)
 
 
+class ScorePayload(TextPayload):
+    # Optional: the message the draft replies to, so the score can take it into account.
+    reply_to: Optional[str] = Field(default=None, max_length=MAX_TEXT_CHARS)
+
+
 class AccessPayload(BaseModel):
     code: str = Field(max_length=MAX_CODE_CHARS)
     lang: Optional[str] = Field(default=None, max_length=16)
@@ -192,7 +197,7 @@ def create_app(settings: Optional[Settings] = None, *, public_dir: Path = PUBLIC
         body = exc.body
         raw_lang = body.get("lang") if hasattr(body, "get") else None
         lang = canonical_lang(raw_lang if isinstance(raw_lang, str) else None)
-        text_fields = {"text", "transcript", "extracted_text"}
+        text_fields = {"text", "transcript", "extracted_text", "reply_to"}
         too_long = any(
             error.get("type") == "string_too_long" and text_fields.intersection(map(str, error.get("loc", ())))
             for error in exc.errors()
@@ -285,15 +290,16 @@ def create_app(settings: Optional[Settings] = None, *, public_dir: Path = PUBLIC
         return run_metered(request, lang, work)
 
     @app.post("/api/score/text")
-    def score_text(request: Request, payload: TextPayload) -> JSONResponse:
+    def score_text(request: Request, payload: ScorePayload) -> JSONResponse:
         lang = canonical_lang(payload.lang)
         draft = payload.text.strip()
+        reply_to = (payload.reply_to or "").strip() or None
         if not draft:
             raise api_error(400, "empty_text", text(lang, "error_empty_send"))
         require_analysis(lang)
 
         def work() -> dict[str, Any]:
-            result, _ = analyzer.score_text(draft, lang)
+            result, _ = analyzer.score_text(draft, lang, reply_to)
             result.update(input=draft, lang=lang)
             return result
 
