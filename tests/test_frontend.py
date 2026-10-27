@@ -224,6 +224,14 @@ def test_installed_app_icon_fills_the_android_shape():
     assert manifest["lang"] == "es"
 
 
+def test_phones_in_other_languages_get_spanish():
+    # Luca, 27/10: the phone's language when the app has it, otherwise Spanish (before: Italian).
+    assert "const FALLBACK_LANG = 'es';" in APP_JS
+    assert "return LANGS.includes(raw) ? raw : FALLBACK_LANG;" in APP_JS
+    assert "LANGS.includes(lang) ? lang : FALLBACK_LANG" in APP_JS
+    assert ": 'it'" not in APP_JS and '<html lang="es"' in INDEX
+
+
 def test_the_old_demo_voice_note_is_gone():
     assert not (PUBLIC / "assets" / "voice_note_demo_27s.wav").exists()
 

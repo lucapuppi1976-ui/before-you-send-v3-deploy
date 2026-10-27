@@ -354,13 +354,16 @@ async function loadLocales(langs) {
   if (!locales[currentLang]) currentLang = 'en';
 }
 
+// The phone's language when the app has it; otherwise Spanish, the language of its first market (Luca, 27/10).
+const FALLBACK_LANG = 'es';
+
 function detectBrowserLang() {
-  const raw = (navigator.language || 'it').slice(0, 2).toLowerCase();
-  return LANGS.includes(raw) ? raw : 'it';
+  const raw = (navigator.language || FALLBACK_LANG).slice(0, 2).toLowerCase();
+  return LANGS.includes(raw) ? raw : FALLBACK_LANG;
 }
 
 function t(key, vars = {}) {
-  const dict = locales[currentLang] || locales.it || {};
+  const dict = locales[currentLang] || locales[FALLBACK_LANG] || {};
   let out = dict[key] || (locales.en || {})[key] || key;
   Object.entries(vars).forEach(([k, v]) => {
     out = out.replaceAll(`{${k}}`, String(v));
@@ -421,7 +424,7 @@ function bindLanguageSelectors() {
 }
 
 async function setLanguage(lang) {
-  const next = LANGS.includes(lang) ? lang : 'it';
+  const next = LANGS.includes(lang) ? lang : FALLBACK_LANG;
   try {
     await loadLocales([next]);
   } catch {
