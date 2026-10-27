@@ -40,7 +40,7 @@ Le variabili si leggono dall'ambiente o da un file `.env` nella cartella del pro
 | `BYS_GATE_EPOCH` | `1` | Fa parte della firma: cambiarlo disconnette tutti. |
 | `BYS_ACCESS_CODE` | (vuota) | Codice tester condiviso, senza limiti. Facoltativo. |
 | `BYS_ACCESS_PAGE_URL` | `https://bb1studio.com/before-you-send/access/` | Pagina "opzioni di accesso" mostrata nell'app e nei messaggi di prova terminata. |
-| `BYS_ACCESS_COOKIE_DAYS` | `30` | Durata del cookie di accesso. |
+| `BYS_ACCESS_COOKIE_DAYS` | `30` | Durata del cookie di accesso. Riparte quando l'app si apre e il cookie ha più di un giorno: chi la usa non deve rimettere il codice. |
 | `BYS_ACCESS_COOKIE_NAME` | `bys_access` | Nome del cookie. |
 | `BYS_DB_PATH` | `./data/bys.db` | Database dei codici; i percorsi relativi partono dalla cartella del progetto. |
 | `BYS_TRIAL_QUOTA` | `30` | Analisi incluse in un codice di prova. |
