@@ -139,6 +139,28 @@ def test_logout_clears_the_cookie(unlocked):
     assert 'bys_access=""' in response.headers["set-cookie"] or "max-age=0" in response.headers["set-cookie"].lower()
 
 
+def test_the_access_cookie_starts_again_when_the_app_opens(make_client):
+    client = make_client()
+    gate = client.app.state.gate
+    _, record = client.app.state.store.create(plan="paid", quota=None)
+    # Fresh cookie: nothing to renew.
+    client.cookies.set("bys_access", gate.issue_token(record.id))
+    assert "set-cookie" not in client.get("/api/config").headers
+    # Entered 20 days ago and still used: the app opening gives it 30 days again.
+    client.cookies.set("bys_access", gate.issue_token(record.id, now=time.time() - 20 * 86400))
+    response = client.get("/api/config")
+    assert response.status_code == 200
+    renewed = re.search(r"bys_access=([^;]+)", response.headers["set-cookie"]).group(1)
+    assert TOKEN_RE.match(renewed) and gate.verify_token(renewed).code_id == record.id
+    assert int(renewed.split(".")[2]) > time.time() + 29 * 86400
+    assert "httponly" in response.headers["set-cookie"].lower()
+    # Revoked code: no new cookie, the app goes back to the code screen.
+    client.app.state.store.revoke(record.id)
+    client.cookies.set("bys_access", gate.issue_token(record.id, now=time.time() - 20 * 86400))
+    revoked = client.get("/api/config")
+    assert revoked.status_code == 401 and "set-cookie" not in revoked.headers
+
+
 def test_status_reports_lock_state(make_client):
     client = make_client()
     assert client.get("/api/access/status").json()["unlocked"] is False

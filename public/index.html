@@ -49,7 +49,7 @@
           <button class="ghost hidden" id="gateContactBtn" data-i18n="error.contact">Write to us</button>
           <button class="ghost" id="openAccessPageBtn" data-i18n="gate.access">No code yet? Get one free</button>
         </div>
-        <p class="caption" data-i18n="gate.note">One code per email address. If you’ve lost it, write to us at hola@bb1studio.com.</p>
+        <p class="caption" data-i18n="gate.note" data-link-email>One code per email address. If you’ve lost it, write to us at hola@bb1studio.com.</p>
       </section>
     </div>
   </section>
@@ -172,7 +172,7 @@
 
   <section id="screen-decode" class="screen">
     <div class="subnav">
-      <button class="back" data-back="screen-home">←</button>
+      <button class="back" data-back="screen-home" aria-label="Indietro" data-i18n-aria-label="onb.back">←</button>
       <div>
         <p class="eyebrow" data-i18n="decode.eyebrow">COSA HAI RICEVUTO</p>
         <h1 data-i18n="decode.title">Capisci cosa voleva dire</h1>
@@ -181,13 +181,13 @@
     </div>
 
     <section class="card stack-sm">
-      <div class="tabbar">
-        <button class="tab active" data-decode-mode="text" data-i18n="decode.tab.text">Testo</button>
-        <button class="tab" data-decode-mode="voice" data-i18n="decode.tab.voice">Vocale</button>
-        <button class="tab" data-decode-mode="image" data-i18n="decode.tab.image">Screenshot</button>
+      <div class="tabbar" role="tablist">
+        <button class="tab active" role="tab" aria-selected="true" aria-controls="decode-mode-text" data-decode-mode="text" data-i18n="decode.tab.text">Testo</button>
+        <button class="tab" role="tab" aria-selected="false" aria-controls="decode-mode-voice" data-decode-mode="voice" data-i18n="decode.tab.voice">Vocale</button>
+        <button class="tab" role="tab" aria-selected="false" aria-controls="decode-mode-image" data-decode-mode="image" data-i18n="decode.tab.image">Screenshot</button>
       </div>
 
-      <div id="decode-mode-text" class="stack-sm">
+      <div id="decode-mode-text" class="stack-sm" role="tabpanel">
         <p class="muted" data-i18n="decode.text.help">Incolla un messaggio o la trascrizione di un vocale.</p>
         <textarea id="decodeTextInput" maxlength="6000" data-i18n-placeholder="decode.text.placeholder" placeholder="Incolla qui un messaggio o la trascrizione di un vocale" spellcheck="false" autocorrect="off" autocapitalize="sentences"></textarea>
         <div class="actions">
@@ -198,7 +198,7 @@
 
       <!-- Voice note: choose the file, record it while it plays on the loudspeaker, or share it from WhatsApp
            (Android, installed app); the transcript field is only for who has the text instead of the audio. -->
-      <div id="decode-mode-voice" class="stack-sm hidden">
+      <div id="decode-mode-voice" class="stack-sm hidden" role="tabpanel">
         <p class="muted" data-i18n="decode.voice.help">Scegli il vocale che hai ricevuto, oppure registralo mentre suona dall'altoparlante.</p>
         <p id="voiceUnavailableNote" class="caption hidden" data-i18n="decode.voice.unavailable">La trascrizione automatica dei vocali non è ancora disponibile: incolla qui sotto il testo del vocale.</p>
         <div class="pick-row" id="voicePickRow">
@@ -228,7 +228,7 @@
         </div>
       </div>
 
-      <div id="decode-mode-image" class="stack-sm hidden">
+      <div id="decode-mode-image" class="stack-sm hidden" role="tabpanel">
         <p class="muted" data-i18n="decode.image.help">Scegli lo screenshot della chat dalla galleria.</p>
         <div class="pick-row" id="imagePickRow">
           <label class="pick-btn" for="imageUpload"><span aria-hidden="true">🖼️</span><span data-i18n="decode.image.choose">Scegli lo screenshot</span></label>
@@ -256,7 +256,7 @@
 
   <section id="screen-send" class="screen">
     <div class="subnav">
-      <button class="back" data-back="screen-home">←</button>
+      <button class="back" data-back="screen-home" aria-label="Indietro" data-i18n-aria-label="onb.back">←</button>
       <div>
         <p class="eyebrow" data-i18n="send.eyebrow">PRIMA DI INVIARE</p>
         <h1 data-i18n="send.title">Controlla come suona</h1>

@@ -1,8 +1,8 @@
 // Network first for the app shell (navigations, HTML, JS, CSS, locales, free examples), with
 // the cache as the offline fallback; cache first only for icons and images. /api/ and /admin/
-// are never cached, and neither is any non-OK response. The 2.6 MB demo voice note is not
-// precached: the audio element loads it on demand.
-const CACHE = 'bys-v5-usability-4';
+// are never cached, and neither is any non-OK response. A demo recording (DEMO_VOICE in
+// app.js, none for now) would not be precached: the audio element loads it on demand.
+const CACHE = 'bys-v5-usability-5';
 const PRECACHE = [
   './',
   './index.html',
@@ -114,5 +114,5 @@ self.addEventListener('fetch', (event) => {
   if (request.destination === 'image' || IMAGE_RE.test(url.pathname)) {
     event.respondWith(cacheFirst(event));
   }
-  // Everything else (such as the demo voice note, fetched with range requests) goes to the network.
+  // Everything else (such as audio, fetched with range requests) goes to the network.
 });

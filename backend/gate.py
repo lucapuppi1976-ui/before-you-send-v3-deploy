@@ -18,6 +18,7 @@ from .config import Settings
 
 SHARED_CODE_ID = 0  # the optional BYS_ACCESS_CODE tester code: unlimited and not stored in the DB
 TOKEN_VERSION = "v2"
+RENEW_AFTER_SECONDS = 86400  # a valid cookie older than this is issued again when the app opens
 _NUMBER = re.compile(r"[0-9]{1,12}")
 _SIGNATURE = re.compile(r"[0-9a-f]{64}")
 
@@ -116,3 +117,17 @@ class Gate:
         if record is None or record.status() in ("revoked", "expired"):
             return None, None
         return access, record
+
+    def needs_renewal(self, cookies: Mapping[str, str], now: Optional[float] = None) -> bool:
+        """True when the (already verified) access cookie was issued more than RENEW_AFTER_SECONDS ago.
+
+        Issuing it again when the app opens keeps the access for whoever keeps using the app: the cookie lasts
+        cookie_days from the last use, not from the day the code was entered.
+        """
+        if not self.enabled:
+            return False
+        parts = (cookies.get(self.settings.cookie_name) or "").split(".")
+        if len(parts) != 4 or not _NUMBER.fullmatch(parts[2]):
+            return False
+        left = int(parts[2]) - int(time.time() if now is None else now)
+        return left < self.settings.cookie_days * 86400 - RENEW_AFTER_SECONDS

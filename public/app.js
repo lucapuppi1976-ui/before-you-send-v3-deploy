@@ -78,16 +78,16 @@ function readEmailLink() {
 async function init() {
   const link = readEmailLink();
   pendingShare = await takeSharedContent();
+  if (LANGS.includes(link.lang)) {
+    currentLang = link.lang;
+    localStorage.setItem(STORE.lang, currentLang);
+  }
   try {
-    await loadLocales();
+    await loadLocales([currentLang]);
   } catch (error) {
     // The texts stay hidden until they are translated (no Italian flash); without the locales show the page as is.
     document.documentElement.classList.remove('i18n-pending');
     throw error;
-  }
-  if (LANGS.includes(link.lang)) {
-    currentLang = link.lang;
-    localStorage.setItem(STORE.lang, currentLang);
   }
   bindNavigation();
   bindOnboarding();
@@ -341,15 +341,17 @@ function extractErrorMessage(data, fallback = 'API error') {
   return fallback;
 }
 
-async function loadLocales() {
-  const langs = LANGS;
-  const loaded = await Promise.all(langs.map(async (lang) => {
+// Only the texts in use (plus English, the fallback for a missing key): one or two small files when the app opens
+// instead of six; another language is loaded when it is chosen.
+async function loadLocales(langs) {
+  const wanted = [...new Set([...langs, 'en'])].filter((lang) => LANGS.includes(lang) && !locales[lang]);
+  const loaded = await Promise.all(wanted.map(async (lang) => {
     const res = await fetch(`locales/${lang}.json`);
-    const data = await res.json();
-    return [lang, data];
+    if (!res.ok) throw new Error(`locales/${lang}.json: ${res.status}`);
+    return [lang, await res.json()];
   }));
-  locales = Object.fromEntries(loaded);
-  if (!locales[currentLang]) currentLang = 'it';
+  loaded.forEach(([lang, data]) => { locales[lang] = data; });
+  if (!locales[currentLang]) currentLang = 'en';
 }
 
 function detectBrowserLang() {
@@ -380,6 +382,21 @@ function applyTranslations() {
   $$('[data-i18n-placeholder]').forEach((el) => {
     el.placeholder = t(el.dataset.i18nPlaceholder);
   });
+  $$('[data-i18n-aria-label]').forEach((el) => {
+    el.setAttribute('aria-label', t(el.dataset.i18nAriaLabel));
+  });
+  // The contact address inside a text becomes a link (the text itself is set as plain text above).
+  $$('[data-link-email]').forEach((el) => {
+    const parts = el.textContent.split(CONTACT_EMAIL);
+    if (parts.length < 2) return;
+    el.replaceChildren(...parts.flatMap((part, i) => {
+      if (i === 0) return [part];
+      const link = document.createElement('a');
+      link.href = `mailto:${CONTACT_EMAIL}`;
+      link.textContent = CONTACT_EMAIL;
+      return [link, part];
+    }));
+  });
   document.documentElement.classList.remove('i18n-pending');
   const homeSel = $('#langSelectHome');
   const settingsSel = $('#langSelectSettings');
@@ -404,7 +421,15 @@ function bindLanguageSelectors() {
 }
 
 async function setLanguage(lang) {
-  currentLang = LANGS.includes(lang) ? lang : 'it';
+  const next = LANGS.includes(lang) ? lang : 'it';
+  try {
+    await loadLocales([next]);
+  } catch {
+    // Texts not reachable (no network): stay in the current language, and say so in the selectors.
+    ['#langSelectHome', '#langSelectSettings', '#langSelectGate'].forEach((sel) => { const el = $(sel); if (el) el.value = currentLang; });
+    return;
+  }
+  currentLang = next;
   localStorage.setItem(STORE.lang, currentLang);
   applyTranslations();
   if (!gateState.enabled || gateState.unlocked) checkApiHealth();
@@ -888,7 +913,10 @@ function setDecodeMode(mode) {
     hideResult('#decodeResult');
   }
   currentDecodeMode = mode;
-  $$('.tab').forEach((tab) => tab.classList.toggle('active', tab.dataset.decodeMode === mode));
+  $$('.tab').forEach((tab) => {
+    tab.classList.toggle('active', tab.dataset.decodeMode === mode);
+    tab.setAttribute('aria-selected', String(tab.dataset.decodeMode === mode));
+  });
   ['text', 'voice', 'image'].forEach((key) => {
     $('#decode-mode-' + key)?.classList.toggle('hidden', key !== mode);
   });
@@ -1364,7 +1392,16 @@ function fitWrappedText(ctx, text, x, y, maxWidth, options = {}) {
 function wrapText(ctx, text, x, y, maxWidth, lineHeight) { const lines = wrapTextLines(ctx, text, maxWidth); lines.forEach((line, idx) => ctx.fillText(line, x, y + (idx * lineHeight))); }
 function sourceLabel(source) { return t(`source.${source}`); }
 function persistHistory(){ localStorage.setItem(STORE.history, JSON.stringify(historyLog)); }
-function hardReset(){ localStorage.removeItem(STORE.onboarding); localStorage.removeItem(STORE.history); localStorage.removeItem(STORE.settings); localStorage.removeItem(STORE.lang); historyLog=[]; currentLang = detectBrowserLang(); applyTranslations(); renderHistory(); if (gateState.enabled && !gateState.unlocked) { showGateScreen(''); return; } openScreen('screen-onboarding-1'); }
+async function hardReset() {
+  [STORE.onboarding, STORE.history, STORE.settings, STORE.lang].forEach((key) => localStorage.removeItem(key));
+  historyLog = [];
+  currentLang = detectBrowserLang();
+  try { await loadLocales([currentLang]); } catch {}
+  applyTranslations();
+  renderHistory();
+  if (gateState.enabled && !gateState.unlocked) { showGateScreen(''); return; }
+  openScreen('screen-onboarding-1');
+}
 function loadJSON(key, fallback){ try{ return JSON.parse(localStorage.getItem(key)||'null') ?? fallback; }catch{ return fallback; } }
 function formatDate(iso){ try { return new Date(iso).toLocaleString(DATE_LOCALES[currentLang] || 'en-US', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }); } catch { return iso; } }
 async function copyText(text){ try{ await navigator.clipboard.writeText(text); } catch { const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); } }

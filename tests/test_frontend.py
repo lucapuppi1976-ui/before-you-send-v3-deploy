@@ -49,8 +49,8 @@ def test_onboarding_notice_discloses_the_processors():
 
 
 def test_every_translation_key_used_by_the_page_exists():
-    used = set(re.findall(r'data-i18n(?:-placeholder)?="([^"]+)"', INDEX))
-    used |= set(re.findall(r"\bt\('([a-z0-9_.]+)'", APP_JS))
+    used = set(re.findall(r'data-i18n(?:-placeholder|-aria-label)?="([^"]+)"', INDEX))
+    used |= set(re.findall(r"\bt\('([a-zA-Z0-9_.]+)'", APP_JS))
     used |= set(re.findall(r"'((?:rewrite|metric)\.[a-z_]+)'", APP_JS))  # LABEL_KEYS, looked up dynamically
     used |= {f"source.{name}" for name in ("text", "voice", "image")}
     for lang, data in LOCALES.items():
@@ -202,6 +202,30 @@ def test_share_from_whatsapp_goes_through_the_service_worker():
     share_cache = re.search(r"const SHARE_CACHE = '([^']+)'", SW_JS).group(1)
     assert f"const SHARE_CACHE = '{share_cache}';" in APP_JS
     assert "takeSharedContent()" in APP_JS and "applySharedContent(share)" in APP_JS
+
+
+def test_screen_readers_get_names_tabs_and_a_tappable_address():
+    assert INDEX.count('aria-label="Indietro" data-i18n-aria-label="onb.back">←</button>') == 2
+    assert 'class="tabbar" role="tablist"' in INDEX and INDEX.count('role="tab" aria-selected=') == 3
+    assert INDEX.count('role="tabpanel"') == 3 and "tab.setAttribute('aria-selected'" in APP_JS
+    assert 'data-i18n="gate.note" data-link-email' in INDEX and "link.href = `mailto:${CONTACT_EMAIL}`" in APP_JS
+
+
+def test_only_the_language_in_use_is_loaded():
+    assert "await loadLocales([currentLang]);" in APP_JS and "await loadLocales([next]);" in APP_JS
+    assert "const langs = LANGS;" not in APP_JS
+
+
+def test_installed_app_icon_fills_the_android_shape():
+    manifest = json.loads((PUBLIC / "manifest.webmanifest").read_text(encoding="utf-8"))
+    maskable = [icon for icon in manifest["icons"] if icon.get("purpose") == "maskable"]
+    assert {icon["sizes"] for icon in maskable} == {"192x192", "512x512"}
+    assert all((PUBLIC / icon["src"]).exists() for icon in manifest["icons"])
+    assert manifest["lang"] == "es"
+
+
+def test_the_old_demo_voice_note_is_gone():
+    assert not (PUBLIC / "assets" / "voice_note_demo_27s.wav").exists()
 
 
 def test_deleting_and_signing_out_ask_first():

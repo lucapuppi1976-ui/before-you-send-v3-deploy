@@ -235,16 +235,19 @@ def create_app(settings: Optional[Settings] = None, *, public_dir: Path = PUBLIC
             raise trial_ended(lang, status)
         log.info("unlock ok code id=%s", result.access.code_id)
         response = JSONResponse({"ok": True, "enabled": True, "unlocked": True, "accessPage": access_page})
+        set_access_cookie(response, request, result.access.code_id)
+        return response
+
+    def set_access_cookie(response: Response, request: Request, code_id: int) -> None:
         response.set_cookie(
             key=settings.cookie_name,
-            value=gate.issue_token(result.access.code_id),
+            value=gate.issue_token(code_id),
             max_age=settings.cookie_days * 86400,
             httponly=True,
             secure=request.url.scheme == "https",
             samesite="lax",
             path="/",
         )  # no Domain attribute: host-only cookie
-        return response
 
     @app.post("/api/access/logout")
     def access_logout(request: Request) -> JSONResponse:
@@ -255,7 +258,7 @@ def create_app(settings: Optional[Settings] = None, *, public_dir: Path = PUBLIC
         return response
 
     @app.get("/api/config")
-    def app_config(request: Request) -> dict[str, Any]:
+    def app_config(request: Request) -> JSONResponse:
         access, record = gate.session(request.cookies)
         if access is None:
             raise HTTPException(status_code=401, detail=LOCKED)
@@ -266,12 +269,16 @@ def create_app(settings: Optional[Settings] = None, *, public_dir: Path = PUBLIC
         else:
             plan, remaining = (record.plan, record.remaining) if record else ("trial", 0)
         ready = analyzer.available
-        return {
+        response = JSONResponse({
             "supports": {"text": ready, "voice": ready and bool(settings.groq_api_key), "image": ready, "shareCard": True},
             "supportedLanguages": sorted(SUPPORTED_LANGS),
             "demoSamples": True,
             "access": {"plan": plan, "remaining": remaining},
-        }
+        })
+        # The app asks for its config every time it opens: an access cookie older than a day starts its days again.
+        if access.code_id is not None and gate.needs_renewal(request.cookies):
+            set_access_cookie(response, request, access.code_id)
+        return response
 
     # --- AI endpoints (gate + rate limit already checked by GuardMiddleware) ------------
 
