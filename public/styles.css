@@ -630,3 +630,48 @@ details.reply-to textarea { min-height: 96px; margin-top: 8px; }
   font-size: 1.25rem;
   line-height: 1;
 }
+
+/* Voice note and screenshot: big «Choose» and «Record» buttons instead of the browser's file field. */
+.file-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.pick-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+.pick-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 64px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px dashed rgba(124,149,255,.5);
+  background: rgba(124,149,255,.10);
+  color: var(--text);
+  font-weight: 700;
+  cursor: pointer;
+}
+.pick-btn > span[aria-hidden] { font-size: 1.4rem; }
+.recording {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,106,106,.35);
+  background: rgba(255,106,106,.10);
+}
+.recording .caption { flex: 1 1 150px; margin: 0; }
+.rec-dot { width: 12px; height: 12px; border-radius: 999px; background: var(--danger); animation: rec-pulse 1s ease-in-out infinite; }
+@keyframes rec-pulse { 50% { opacity: .3; } }
+.file-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 6px 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,.06);
+}
+.file-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .92rem; }
+details.paste-box summary { cursor: pointer; color: var(--primary-2); font-size: .95rem; padding: 6px 2px; }
+details.paste-box textarea { min-height: 110px; margin-top: 8px; }
+.share-tip { margin: 0; }

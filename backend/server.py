@@ -11,7 +11,7 @@ from typing import Any, Callable, Literal, Mapping, Optional
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.responses import Response
@@ -38,6 +38,7 @@ log = logging.getLogger("bys")
 
 LOCKED = "Access locked. Enter your access code to continue."
 MULTIPART_OVERHEAD = 64 * 1024  # room for form boundaries and the small text fields next to a file
+SHARE_TARGET_PATH = "/share-target"  # the share_target action in public/manifest.webmanifest
 
 
 class TextPayload(BaseModel):
@@ -418,12 +419,19 @@ def create_app(settings: Optional[Settings] = None, *, public_dir: Path = PUBLIC
     def favicon_ico() -> FileResponse:
         return FileResponse(favicon, media_type="image/png")
 
+    # "Share → Before You Send" (Web Share Target of the installed app) posts here. The service worker answers it and
+    # hands the shared file or text to the page; if it is not running, the body is never read and the app opens.
+    @app.post(SHARE_TARGET_PATH, include_in_schema=False)
+    def share_target_without_service_worker() -> RedirectResponse:
+        return RedirectResponse("/", status_code=303)
+
     app.add_middleware(
         BodySizeLimitMiddleware,
         default_limit=settings.max_json_bytes,
         path_limits={
             "/api/decode/image": settings.max_image_bytes + MULTIPART_OVERHEAD,
             "/api/decode/audio": settings.max_audio_bytes + MULTIPART_OVERHEAD,
+            SHARE_TARGET_PATH: max(settings.max_image_bytes, settings.max_audio_bytes) + MULTIPART_OVERHEAD,
         },
     )
     app.add_middleware(

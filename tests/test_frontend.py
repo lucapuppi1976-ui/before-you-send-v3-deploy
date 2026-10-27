@@ -182,6 +182,28 @@ def test_history_cards_open_the_result_and_one_entry_can_be_deleted():
     assert "data-history-share" not in APP_JS
 
 
+def test_voice_notes_and_screenshots_have_big_buttons_not_the_browser_file_field():
+    for field in ("voiceUpload", "imageUpload"):
+        assert re.search(rf'<label class="pick-btn" for="{field}">', INDEX), field
+        assert re.search(rf'<input type="file" id="{field}" class="file-input"', INDEX), field
+    assert 'id="voiceRecordBtn"' in INDEX and "new MediaRecorder(" in APP_JS and "MAX_RECORDING_SECONDS" in APP_JS
+    # The chosen, recorded or shared file is what gets analyzed, not a pasted text left behind.
+    assert "const file = capabilities.voice ? voiceFile : null;" in APP_JS and "const file = imageFile;" in APP_JS
+
+
+def test_share_from_whatsapp_goes_through_the_service_worker():
+    manifest = json.loads((PUBLIC / "manifest.webmanifest").read_text(encoding="utf-8"))
+    target = manifest["share_target"]
+    assert (target["action"], target["method"], target["enctype"]) == ("/share-target", "POST", "multipart/form-data")
+    accept = target["params"]["files"][0]["accept"]
+    assert "audio/*" in accept and "image/*" in accept and ".opus" in accept
+    assert "const SHARE_PATH = '/share-target';" in SW_JS and "receiveShare(request)" in SW_JS
+    assert "key !== CACHE && key !== SHARE_CACHE" in SW_JS  # an update never drops what was just shared
+    share_cache = re.search(r"const SHARE_CACHE = '([^']+)'", SW_JS).group(1)
+    assert f"const SHARE_CACHE = '{share_cache}';" in APP_JS
+    assert "takeSharedContent()" in APP_JS and "applySharedContent(share)" in APP_JS
+
+
 def test_deleting_and_signing_out_ask_first():
     assert 'id="resetAllBtn"' not in INDEX  # no reset button on the Home, only in the settings
     for key in ("confirm.reset", "confirm.clearHistory", "confirm.lock"):

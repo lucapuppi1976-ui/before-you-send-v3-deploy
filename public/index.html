@@ -196,29 +196,56 @@
         </div>
       </div>
 
+      <!-- Voice note: choose the file, record it while it plays on the loudspeaker, or share it from WhatsApp
+           (Android, installed app); the transcript field is only for who has the text instead of the audio. -->
       <div id="decode-mode-voice" class="stack-sm hidden">
-        <p class="muted" data-i18n="decode.voice.help">Puoi caricare un file audio oppure incollare direttamente una trascrizione.</p>
+        <p class="muted" data-i18n="decode.voice.help">Scegli il vocale che hai ricevuto, oppure registralo mentre suona dall'altoparlante.</p>
         <p id="voiceUnavailableNote" class="caption hidden" data-i18n="decode.voice.unavailable">La trascrizione automatica dei vocali non è ancora disponibile: incolla qui sotto il testo del vocale.</p>
-        <div class="file-row">
-          <button class="ghost" id="useDemoVoice" data-i18n="decode.voice.sample">Prova vocale demo</button>
-          <input type="file" id="voiceUpload" accept="audio/*">
+        <div class="pick-row" id="voicePickRow">
+          <label class="pick-btn" for="voiceUpload"><span aria-hidden="true">🎧</span><span data-i18n="decode.voice.choose">Scegli il vocale</span></label>
+          <button class="pick-btn hidden" id="voiceRecordBtn" type="button"><span aria-hidden="true">🎙️</span><span data-i18n="decode.voice.record">Registra</span></button>
+        </div>
+        <p class="caption share-tip hidden" data-share-tip></p>
+        <input type="file" id="voiceUpload" class="file-input" accept="audio/*,.opus,.ogg,.oga,.m4a,.mp3,.wav,.webm,.aac">
+        <div id="voiceRecording" class="recording hidden" role="status">
+          <span class="rec-dot" aria-hidden="true"></span>
+          <strong id="voiceRecordingTime">0:00</strong>
+          <span class="caption" data-i18n="decode.voice.recordingHint">Fai suonare il vocale vicino al telefono.</span>
+          <button class="ghost small" id="voiceStopBtn" type="button" data-i18n="decode.voice.stop">Stop</button>
+        </div>
+        <div id="voiceFileChip" class="file-chip hidden">
+          <span aria-hidden="true">📎</span><span id="voiceFileName" class="file-name"></span>
+          <button class="ghost small" id="voiceFileRemove" type="button" data-i18n="decode.file.remove">Togli</button>
         </div>
         <audio id="voicePlayer" controls class="hidden"></audio>
-        <textarea id="voiceTranscript" maxlength="6000" data-i18n-placeholder="decode.voice.placeholder" placeholder="Se vuoi, incolla qui la trascrizione del vocale." spellcheck="false" autocorrect="off" autocapitalize="sentences"></textarea>
+        <details class="paste-box" id="voiceTextBox">
+          <summary data-i18n="decode.voice.pasteInstead">Hai il testo invece dell'audio? Incollalo qui</summary>
+          <textarea id="voiceTranscript" maxlength="6000" data-i18n-placeholder="decode.voice.placeholder" placeholder="Se vuoi, incolla qui la trascrizione del vocale." spellcheck="false" autocorrect="off" autocapitalize="sentences"></textarea>
+        </details>
         <div class="actions">
+          <button class="ghost" id="useDemoVoice" data-i18n="decode.voice.sample">Prova vocale demo</button>
           <button class="primary" id="decodeVoiceAnalyze" data-i18n="decode.voice.analyze">Analizza il vocale</button>
         </div>
       </div>
 
       <div id="decode-mode-image" class="stack-sm hidden">
-        <p class="muted" data-i18n="decode.image.help">Carica uno screenshot della chat. In alternativa, incolla il testo già estratto.</p>
-        <div class="file-row">
-          <button class="ghost" id="useDemoScreenshot" data-i18n="decode.image.sample">Prova screenshot demo</button>
-          <input type="file" id="imageUpload" accept="image/*">
+        <p class="muted" data-i18n="decode.image.help">Scegli lo screenshot della chat dalla galleria.</p>
+        <div class="pick-row" id="imagePickRow">
+          <label class="pick-btn" for="imageUpload"><span aria-hidden="true">🖼️</span><span data-i18n="decode.image.choose">Scegli lo screenshot</span></label>
         </div>
-        <img id="imagePreview" src="assets/chat_demo_final.png" alt="Preview screenshot" class="preview-img hidden">
-        <textarea id="imageExtractedText" maxlength="6000" data-i18n-placeholder="decode.image.placeholder" placeholder="Se preferisci, incolla qui il testo estratto dallo screenshot." spellcheck="false" autocorrect="off" autocapitalize="sentences"></textarea>
+        <p class="caption share-tip hidden" data-share-tip></p>
+        <input type="file" id="imageUpload" class="file-input" accept="image/*">
+        <div id="imageFileChip" class="file-chip hidden">
+          <span aria-hidden="true">📎</span><span id="imageFileName" class="file-name"></span>
+          <button class="ghost small" id="imageFileRemove" type="button" data-i18n="decode.file.remove">Togli</button>
+        </div>
+        <img id="imagePreview" src="assets/chat_demo_final.png" alt="" class="preview-img hidden">
+        <details class="paste-box" id="imageTextBox">
+          <summary data-i18n="decode.image.pasteInstead">Preferisci incollare il testo? Incollalo qui</summary>
+          <textarea id="imageExtractedText" maxlength="6000" data-i18n-placeholder="decode.image.placeholder" placeholder="Se preferisci, incolla qui il testo estratto dallo screenshot." spellcheck="false" autocorrect="off" autocapitalize="sentences"></textarea>
+        </details>
         <div class="actions">
+          <button class="ghost" id="useDemoScreenshot" data-i18n="decode.image.sample">Prova screenshot demo</button>
           <button class="primary" id="decodeImageAnalyze" data-i18n="decode.image.analyze">Analizza lo screenshot</button>
         </div>
       </div>

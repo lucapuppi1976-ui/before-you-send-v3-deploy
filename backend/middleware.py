@@ -25,8 +25,8 @@ CONTENT_SECURITY_POLICY = (
     "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; "
     "media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
 )
-# Voice notes are uploaded as files; the page never records audio or uses the camera itself.
-PERMISSIONS_POLICY = "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+# The page itself may use the microphone ("Record": a voice note played on the loudspeaker); never the camera.
+PERMISSIONS_POLICY = "camera=(), microphone=(self), geolocation=(), payment=(), usb=()"
 _SECURITY_HEADERS = (
     (b"content-security-policy", CONTENT_SECURITY_POLICY.encode("ascii")),
     (b"x-content-type-options", b"nosniff"),

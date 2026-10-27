@@ -2,7 +2,7 @@
 // the cache as the offline fallback; cache first only for icons and images. /api/ and /admin/
 // are never cached, and neither is any non-OK response. The 2.6 MB demo voice note is not
 // precached: the audio element loads it on demand.
-const CACHE = 'bys-v5-usability-3';
+const CACHE = 'bys-v5-usability-4';
 const PRECACHE = [
   './',
   './index.html',
@@ -27,6 +27,10 @@ const PRECACHE = [
 ];
 const SHELL_RE = /\.(?:html|js|css|json|webmanifest)$/i;
 const IMAGE_RE = /\.(?:png|jpe?g|gif|webp|svg|ico)$/i;
+// «Share → Before You Send» (share_target in the manifest, Android): what was shared waits here until the page
+// takes it (app.js, takeSharedContent), and never leaves the phone before the person taps «Analyze».
+const SHARE_CACHE = 'bys-share';
+const SHARE_PATH = '/share-target';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(PRECACHE)).then(() => self.skipWaiting()));
@@ -35,10 +39,29 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))
+      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE && key !== SHARE_CACHE).map((key) => caches.delete(key))))
       .then(() => self.clients.claim())
   );
 });
+
+async function receiveShare(request) {
+  try {
+    const form = await request.formData();
+    const file = form.getAll('file').find((item) => item && typeof item === 'object' && item.size > 0);
+    const text = ['title', 'text', 'url']
+      .map((name) => form.get(name))
+      .filter((value) => typeof value === 'string' && value.trim())
+      .join('\n');
+    await caches.delete(SHARE_CACHE);
+    const cache = await caches.open(SHARE_CACHE);
+    const meta = { text, name: file ? file.name : '', type: file ? file.type : '' };
+    await cache.put('/__shared/meta', new Response(JSON.stringify(meta), { headers: { 'Content-Type': 'application/json' } }));
+    if (file) await cache.put('/__shared/file', new Response(file));
+  } catch {
+    // Nothing readable was shared: the app opens as usual.
+  }
+  return Response.redirect(new URL('/?shared=1', self.location.origin).href, 303);
+}
 
 function cacheable(response) {
   // 200 only: partial (206) audio ranges and errors are never stored.
@@ -75,8 +98,12 @@ async function cacheFirst(event) {
 
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-  if (request.method !== 'GET') return;
   const url = new URL(request.url);
+  if (request.method === 'POST' && url.origin === self.location.origin && url.pathname === SHARE_PATH) {
+    event.respondWith(receiveShare(request));
+    return;
+  }
+  if (request.method !== 'GET') return;
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith('/api/') || url.pathname === '/admin' || url.pathname.startsWith('/admin/')) return;
 

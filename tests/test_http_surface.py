@@ -73,13 +73,21 @@ def test_dotfiles_inside_public_are_not_served(make_settings, claude, tmp_path: 
     assert client.get("/.hidden/file.txt").status_code == 404
 
 
+def test_share_target_without_the_service_worker_opens_the_app(make_client):
+    # A shared WhatsApp voice note larger than the 64 KB JSON limit: not read, not stored, the app opens.
+    files = {"file": ("PTT-20261027-WA0001.opus", b"OggS" + b"\x00" * 200_000, "audio/ogg")}
+    response = make_client().post("/share-target", files=files, follow_redirects=False)
+    assert response.status_code == 303 and response.headers["location"] == "/"
+
+
 @pytest.mark.parametrize("path", ["/", "/api/health", "/does-not-exist", "/api/config"])
 def test_security_headers_on_every_response(make_client, path):
     response = make_client().get(path)
     assert response.headers["content-security-policy"] == CONTENT_SECURITY_POLICY
     assert response.headers["x-content-type-options"] == "nosniff"
     assert response.headers["referrer-policy"] == "strict-origin-when-cross-origin"
-    assert "microphone=()" in response.headers["permissions-policy"]
+    assert "microphone=(self)" in response.headers["permissions-policy"]  # "Record", from this page only
+    assert "camera=()" in response.headers["permissions-policy"]
     assert response.headers["x-frame-options"] == "DENY"
 
 

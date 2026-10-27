@@ -50,6 +50,18 @@ const ANALYSIS_BUTTONS = [
   '#decodeTextAnalyze', '#decodeVoiceAnalyze', '#decodeImageAnalyze', '#sendAnalyze',
   '#decodeTextSample', '#useDemoVoice', '#useDemoScreenshot', '#sendSample', '#runQuickDemo',
 ];
+// The voice note and the screenshot to analyze: chosen, recorded or shared from another app. When one is there it
+// is analyzed, not the pasted text.
+let voiceFile = null;
+let imageFile = null;
+// «Record»: a voice note played on the loudspeaker, through the microphone, at most 5 minutes.
+const MAX_RECORDING_SECONDS = 300;
+let recorder = null;
+let recordTimer = null;
+// «Share → Before You Send» (Android, installed app): sw.js keeps the shared file or text in this cache and opens
+// ./?shared=1; the app takes it once, after the code screen if needed.
+const SHARE_CACHE = 'bys-share';
+let pendingShare = null;
 
 init();
 
@@ -65,6 +77,7 @@ function readEmailLink() {
 
 async function init() {
   const link = readEmailLink();
+  pendingShare = await takeSharedContent();
   try {
     await loadLocales();
   } catch (error) {
@@ -105,8 +118,56 @@ async function init() {
 
 
 function openInitialScreen() {
+  if (pendingShare) {
+    const share = pendingShare;
+    pendingShare = null;
+    if (applySharedContent(share)) return;
+  }
   const done = localStorage.getItem(STORE.onboarding) === '1';
   openScreen(done ? 'screen-home' : 'screen-onboarding-1');
+}
+
+async function takeSharedContent() {
+  if (!new URLSearchParams(location.search).has('shared')) return null;
+  history.replaceState(null, '', location.pathname);
+  if (!('caches' in window)) return null;
+  try {
+    const cache = await caches.open(SHARE_CACHE);
+    const meta = await cache.match('/__shared/meta');
+    if (!meta) return null;
+    const info = await meta.json();
+    const stored = await cache.match('/__shared/file');
+    const file = stored ? new File([await stored.blob()], info.name || 'shared', { type: info.type || '' }) : null;
+    await caches.delete(SHARE_CACHE);
+    return { file, text: String(info.text || '') };
+  } catch {
+    return null;
+  }
+}
+
+// What was shared goes in the right tab, ready: the person taps «Analyze» (an analysis is never used up on its own).
+function applySharedContent({ file, text }) {
+  if (file && isAudioFile(file)) {
+    setDecodeMode('voice');
+    setVoiceFile(file, file.name);
+  } else if (file && (file.type || '').startsWith('image/')) {
+    setDecodeMode('image');
+    setImageFile(file);
+  } else if (text.trim()) {
+    setDecodeMode('text');
+    $('#decodeTextInput').value = text.trim().slice(0, 6000);
+  } else {
+    return false;
+  }
+  openScreen('screen-decode', { scrollTop: true, restoreScroll: false });
+  const target = $('#decodeResult');
+  target.innerHTML = `<p class="result-notice" role="status">${escapeHTML(t('decode.sharedReady'))}</p>`;
+  target.classList.remove('hidden');
+  return true;
+}
+
+function isAudioFile(file) {
+  return (file.type || '').startsWith('audio/') || /\.(opus|ogg|oga|m4a|mp3|wav|webm|aac)$/i.test(file.name || '');
 }
 
 function accessPageUrl() {
@@ -329,6 +390,7 @@ function applyTranslations() {
   syncGateUI();
   renderQuota();
   renderHistory();
+  renderShareTip();
   $$('.field-hint').forEach((hint) => hint.classList.add('hidden'));
   // An example on screen comes back in the new language from setLanguage().
   if (latestDecodeResult && !latestDecodeResult.example) renderDecodeResult(latestDecodeResult, latestDecodeResult.source || 'text', latestDecodeResult.input || '');
@@ -383,53 +445,41 @@ function bindDecode() {
   }));
 
   // Voice example: the transcript of a Spanish voice note (and the recording, if DEMO_VOICE is set) with its ready
-  // result. A file chosen before is cleared.
+  // result. A voice note chosen before is cleared, so the example's text is what counts.
   $('#useDemoVoice')?.addEventListener('click', () => withAnalysisLock(async () => {
     if (!await fillExample('voice', '#voiceTranscript')) return;
-    const upload = $('#voiceUpload');
-    if (upload) upload.value = '';
-    const player = $('#voicePlayer');
-    player.pause();
+    clearVoiceFile();
+    $('#voiceTextBox').open = true;
     if (DEMO_VOICE) {
+      const player = $('#voicePlayer');
       player.src = DEMO_VOICE;
       player.classList.remove('hidden');
-    } else {
-      player.removeAttribute('src');
-      player.classList.add('hidden');
     }
   }));
 
   $('#voiceUpload')?.addEventListener('change', (e) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    // A typed transcript is analyzed instead of the file: the example's one must not hide the user's voice note.
-    const transcript = $('#voiceTranscript');
-    if (isExampleInput('voice', transcript.value.trim())) transcript.value = '';
-    clearFieldHint(transcript);
-    const player = $('#voicePlayer');
-    player.src = URL.createObjectURL(file);
-    player.classList.remove('hidden');
+    if (file) setVoiceFile(file, file.name);
   });
+  $('#voiceFileRemove')?.addEventListener('click', clearVoiceFile);
+  $('#voiceRecordBtn')?.addEventListener('click', startRecording);
+  $('#voiceStopBtn')?.addEventListener('click', stopRecording);
 
   $('#decodeVoiceAnalyze')?.addEventListener('click', () => withAnalysisLock(runDecodeVoice));
 
   $('#useDemoScreenshot')?.addEventListener('click', () => withAnalysisLock(async () => {
     if (!await fillExample('image', '#imageExtractedText')) return;
-    const upload = $('#imageUpload');
-    if (upload) upload.value = '';
+    clearImageFile();
+    $('#imageTextBox').open = true;
     $('#imagePreview').src = 'assets/chat_demo_final.png';
     $('#imagePreview').classList.remove('hidden');
   }));
 
   $('#imageUpload')?.addEventListener('change', (e) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    const extracted = $('#imageExtractedText');
-    if (isExampleInput('image', extracted.value.trim())) extracted.value = '';
-    clearFieldHint(extracted);
-    $('#imagePreview').src = URL.createObjectURL(file);
-    $('#imagePreview').classList.remove('hidden');
+    if (file) setImageFile(file);
   });
+  $('#imageFileRemove')?.addEventListener('click', clearImageFile);
 
   $('#decodeImageAnalyze')?.addEventListener('click', () => withAnalysisLock(runDecodeImage));
 }
@@ -549,6 +599,124 @@ function clearFieldHint(field) {
   if (hint?.classList.contains('field-hint')) hint.classList.add('hidden');
 }
 
+// --- voice note and screenshot: chosen, recorded or shared -------------------------------------------------------
+
+function setVoiceFile(file, label) {
+  voiceFile = file;
+  $('#voiceFileName').textContent = label || file.name || t('decode.voice.recorded');
+  $('#voiceFileChip').classList.remove('hidden');
+  const player = $('#voicePlayer');
+  if (player.src.startsWith('blob:')) URL.revokeObjectURL(player.src);
+  player.src = URL.createObjectURL(file);
+  player.classList.remove('hidden');
+  clearFieldHint($('#voicePickRow'));
+}
+
+function clearVoiceFile() {
+  voiceFile = null;
+  $('#voiceUpload').value = '';
+  $('#voiceFileChip').classList.add('hidden');
+  const player = $('#voicePlayer');
+  player.pause();
+  if (player.src.startsWith('blob:')) URL.revokeObjectURL(player.src);
+  player.removeAttribute('src');
+  player.classList.add('hidden');
+}
+
+function setImageFile(file) {
+  imageFile = file;
+  $('#imageFileName').textContent = file.name || t('source.image');
+  $('#imageFileChip').classList.remove('hidden');
+  const preview = $('#imagePreview');
+  if (preview.src.startsWith('blob:')) URL.revokeObjectURL(preview.src);
+  preview.src = URL.createObjectURL(file);
+  preview.classList.remove('hidden');
+  clearFieldHint($('#imagePickRow'));
+}
+
+function clearImageFile() {
+  imageFile = null;
+  $('#imageUpload').value = '';
+  $('#imageFileChip').classList.add('hidden');
+  const preview = $('#imagePreview');
+  if (preview.src.startsWith('blob:')) URL.revokeObjectURL(preview.src);
+  preview.classList.add('hidden');
+}
+
+function canRecord() {
+  return Boolean(window.MediaRecorder && navigator.mediaDevices?.getUserMedia);
+}
+
+async function startRecording() {
+  if (recorder || !canRecord()) return;
+  const pick = $('#voicePickRow');
+  clearFieldHint(pick);
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (error) {
+    showFieldHint(pick, t(error?.name === 'NotAllowedError' ? 'decode.voice.micDenied' : 'decode.voice.micMissing'));
+    return;
+  }
+  // Opus in WebM (Chrome, Android) or AAC in MP4 (Safari, iPhone): both are read by the transcription.
+  const mimeType = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/ogg;codecs=opus', 'audio/webm']
+    .find((type) => MediaRecorder.isTypeSupported?.(type));
+  const chunks = [];
+  const started = Date.now();
+  const current = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+  recorder = current;
+  current.addEventListener('dataavailable', (event) => { if (event.data?.size) chunks.push(event.data); });
+  current.addEventListener('stop', () => {
+    stream.getTracks().forEach((track) => track.stop());
+    clearInterval(recordTimer);
+    recorder = null;
+    showRecording(false);
+    if (!chunks.length) return;
+    const type = (current.mimeType || mimeType || 'audio/webm').split(';')[0];
+    const extension = type.includes('mp4') ? 'm4a' : type.includes('ogg') ? 'ogg' : 'webm';
+    const seconds = Math.round((Date.now() - started) / 1000);
+    setVoiceFile(new File(chunks, `recording.${extension}`, { type }), `${t('decode.voice.recorded')} · ${formatDuration(seconds)}`);
+  });
+  clearVoiceFile();
+  current.start(1000);
+  showRecording(true);
+  const tick = () => {
+    const seconds = Math.floor((Date.now() - started) / 1000);
+    $('#voiceRecordingTime').textContent = formatDuration(seconds);
+    if (seconds >= MAX_RECORDING_SECONDS) stopRecording();
+  };
+  tick();
+  recordTimer = setInterval(tick, 500);
+}
+
+// Stops the recording; the promise resolves once the recorded file is ready.
+function stopRecording() {
+  if (!recorder || recorder.state === 'inactive') return Promise.resolve();
+  const done = new Promise((resolve) => recorder.addEventListener('stop', () => setTimeout(resolve, 0), { once: true }));
+  recorder.stop();
+  return done;
+}
+
+function showRecording(on) {
+  $('#voiceRecording').classList.toggle('hidden', !on);
+  $('#voicePickRow').classList.toggle('hidden', on);
+}
+
+function formatDuration(seconds) {
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+}
+
+// Android: sharing from WhatsApp works once the app is installed; the tip says so (iPhone web apps cannot receive
+// shares, so nothing is shown there).
+function renderShareTip() {
+  const android = /Android/i.test(navigator.userAgent);
+  const installed = window.matchMedia?.('(display-mode: standalone)').matches;
+  $$('[data-share-tip]').forEach((tip) => {
+    tip.textContent = android ? t(installed ? 'decode.shareTip.installed' : 'decode.shareTip.install') : '';
+    tip.classList.toggle('hidden', !android);
+  });
+}
+
 // The Home says something about the service only when there is a problem, with a way to try again.
 async function checkApiHealth() {
   if (gateState.enabled && !gateState.unlocked) return;
@@ -589,11 +757,13 @@ function applyConfig(data) {
 function applyCapabilities() {
   // Without a transcription key the voice tab keeps working with a pasted transcript.
   const voiceOff = !capabilities.voice;
+  $('#voicePickRow')?.classList.toggle('hidden', voiceOff || Boolean(recorder));
+  $('#voiceRecordBtn')?.classList.toggle('hidden', voiceOff || !canRecord());
   const upload = $('#voiceUpload');
-  if (upload) {
-    upload.classList.toggle('hidden', voiceOff);
-    upload.disabled = voiceOff;
-    if (voiceOff) upload.value = '';
+  if (upload) upload.disabled = voiceOff;
+  if (voiceOff) {
+    clearVoiceFile();
+    $('#voiceTextBox').open = true;
   }
   $('#voiceUnavailableNote')?.classList.toggle('hidden', !voiceOff);
 }
@@ -674,6 +844,7 @@ function getSavedScreenScroll(id) {
 
 function openScreen(id, options = {}) {
   const { scrollTop = true, behavior = 'auto', restoreScroll = true, scrollTarget = null } = options;
+  if (id !== 'screen-decode') stopRecording(); // leaving the screen ends a recording (it is kept as the voice note)
   saveActiveScreenScroll();
   $$('.screen').forEach((screen) => screen.classList.remove('active'));
   const nextScreen = $('#' + id);
@@ -712,6 +883,7 @@ function scrollSectionIntoView(target) {
 function setDecodeMode(mode) {
   // Another kind of input: the result of the previous one goes (it stays in the history).
   if (mode !== currentDecodeMode) {
+    if (mode !== 'voice') stopRecording();
     latestDecodeResult = null;
     hideResult('#decodeResult');
   }
@@ -738,16 +910,22 @@ async function runDecodeText(text) {
 }
 
 async function runDecodeVoice() {
-  const field = $('#voiceTranscript');
-  const file = capabilities.voice ? $('#voiceUpload')?.files?.[0] : null;
-  const transcript = field?.value?.trim();
-  if (!file && !transcript) return showFieldHint(field, t('error.voice_missing'));
+  await stopRecording(); // «Analyze» while recording: the recording so far is the voice note
+  const pick = $('#voicePickRow');
+  const file = capabilities.voice ? voiceFile : null;
+  const transcript = $('#voiceTranscript').value.trim();
+  clearFieldHint(pick);
+  if (!file && !transcript) {
+    if (!capabilities.voice) return showFieldHint($('#voiceTranscript'), t('error.voice_missing'));
+    return showFieldHint(pick, t('error.voice_missing'));
+  }
   if (!file && isExampleInput('voice', transcript)) return showExample('voice');
   showLoadingDecode(t('results.loading.voice'));
   try {
+    // The voice note when there is one, otherwise the pasted text: the server analyzes a transcript before a file.
     const form = new FormData();
-    if (file) form.append('file', file);
-    if (transcript) form.append('transcript', transcript);
+    if (file) form.append('file', file, file.name || 'voice');
+    else form.append('transcript', transcript);
     form.append('lang', currentLang);
     const result = await apiForm('/api/decode/audio', form);
     latestDecodeResult = result;
@@ -757,10 +935,11 @@ async function runDecodeVoice() {
 }
 
 async function runDecodeImage() {
-  const field = $('#imageExtractedText');
-  const file = $('#imageUpload')?.files?.[0];
-  const extractedText = field?.value?.trim();
-  if (!file && !extractedText) return showFieldHint(field, t('error.image_missing'));
+  const pick = $('#imagePickRow');
+  const file = imageFile;
+  const extractedText = $('#imageExtractedText').value.trim();
+  clearFieldHint(pick);
+  if (!file && !extractedText) return showFieldHint(pick, t('error.image_missing'));
   if (!file && isExampleInput('image', extractedText)) return showExample('image');
   showLoadingDecode(t('results.loading.image'));
   try {
@@ -768,8 +947,9 @@ async function runDecodeImage() {
     if (file) {
       const upload = await prepareImageUpload(file);
       form.append('file', upload, upload.name || 'screenshot.jpg');
+    } else {
+      form.append('extracted_text', extractedText);
     }
-    if (extractedText) form.append('extracted_text', extractedText);
     form.append('lang', currentLang);
     const result = await apiForm('/api/decode/image', form);
     latestDecodeResult = result;
@@ -982,16 +1162,16 @@ function startOver(kind) {
     $('#sendInput').focus();
     return;
   }
-  ['#decodeTextInput', '#voiceTranscript', '#imageExtractedText', '#voiceUpload', '#imageUpload'].forEach((sel) => { const el = $(sel); if (el) el.value = ''; });
-  const player = $('#voicePlayer');
-  player.pause();
-  player.removeAttribute('src');
-  player.classList.add('hidden');
-  $('#imagePreview').classList.add('hidden');
+  ['#decodeTextInput', '#voiceTranscript', '#imageExtractedText'].forEach((sel) => { $(sel).value = ''; });
+  clearVoiceFile();
+  clearImageFile();
+  $('#voiceTextBox').open = false;
+  $('#imageTextBox').open = false;
   latestDecodeResult = null;
   hideResult('#decodeResult');
   window.scrollTo({ top: 0 });
-  ({ text: $('#decodeTextInput'), voice: $('#voiceTranscript'), image: $('#imageExtractedText') })[currentDecodeMode]?.focus();
+  // Text: the cursor in the field; voice note and screenshot: the big «Choose» button is the next step.
+  if (currentDecodeMode === 'text') $('#decodeTextInput').focus();
 }
 
 function hideResult(sel) {
