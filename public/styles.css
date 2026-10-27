@@ -327,7 +327,7 @@ hr.sep {
   line-height: 1.15;
   margin: 0;
 }
-.metric-list, .chips, .reply-grid, .rewrite-tabs, .list {
+.metric-list, .chips, .reply-grid, .list {
   display: grid;
   gap: 10px;
 }
@@ -394,30 +394,6 @@ hr.sep {
   padding: 14px;
   background: rgba(255,255,255,.05);
   border: 1px solid var(--line);
-}
-.rewrite-tabs {
-  grid-template-columns: repeat(4, 1fr);
-  background: rgba(255,255,255,.04);
-  padding: 4px;
-  border-radius: 18px;
-  border: 1px solid var(--line);
-}
-.rewrite-tab {
-  background: transparent;
-  color: var(--muted);
-  padding: 10px 8px;
-  border-radius: 14px;
-}
-.rewrite-tab.active {
-  background: rgba(124,149,255,0.18);
-  color: var(--text);
-}
-.output-box {
-  border-radius: 18px;
-  padding: 14px;
-  background: rgba(6,10,19,0.55);
-  border: 1px solid var(--line);
-  line-height: 1.5;
 }
 .switch {
   display: flex;
@@ -490,11 +466,10 @@ hr.sep {
 }
 .share-title { font-size: 1.6rem; font-weight: 800; line-height: 1.05; }
 .share-footer { display: flex; justify-content: space-between; align-items: flex-end; }
-.download-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 @media (max-width: 380px) {
   #app { padding-left: 12px; padding-right: 12px; }
-  .actions, .bottom-actions, .download-row { grid-template-columns: 1fr; }
-  .grid-2, .chips, .rewrite-tabs { grid-template-columns: 1fr; }
+  .actions, .bottom-actions { grid-template-columns: 1fr; }
+  .grid-2, .chips { grid-template-columns: 1fr; }
 }
 
 .badge.waiting { background: rgba(255,214,124,.12); border-color: rgba(255,214,124,.25); color: #ffe7b0; }
@@ -607,3 +582,51 @@ details.reply-to summary {
   padding: 6px 2px;
 }
 details.reply-to textarea { min-height: 96px; margin-top: 8px; }
+
+/* Analyses left also on the analysis screens, under the title. */
+.subnav .quota-mirror { display: inline-block; margin-top: 8px; padding: 5px 12px; font-size: .85rem; }
+
+/* Results: a «Copy» button on every reply and version; «Analyze another message» at the end. */
+.reply-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 6px; }
+.reply-head h4 { margin: 0; }
+.copy-btn { flex: 0 0 auto; min-width: 96px; }
+.copy-btn.done { color: var(--success); border-color: rgba(121,221,159,.35); }
+.again-btn { width: 100%; }
+
+/* History: compact cards that open the result; one entry can be deleted. */
+.history-card { position: relative; padding: 0; }
+.history-open {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 14px 52px 14px 14px;
+  border: 0;
+  border-radius: 18px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+.history-open .meta { margin: 0; }
+.history-title { font-weight: 700; font-size: 1.02rem; }
+.history-input, .history-summary {
+  color: var(--muted);
+  font-size: .92rem;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.history-input { font-style: italic; }
+.history-delete {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,.04);
+  color: var(--muted);
+  font-size: 1.25rem;
+  line-height: 1;
+}

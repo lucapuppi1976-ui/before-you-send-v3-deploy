@@ -159,6 +159,29 @@ def test_the_score_can_include_the_message_it_replies_to():
     assert 'id="sendReplyTo"' in INDEX and "reply_to: replyTo" in APP_JS
 
 
+def test_every_reply_and_version_can_be_copied():
+    assert "copyCard(r.style, r.text, i)" in APP_JS
+    assert "copyCard(displayLabel(key), result.rewrites[key], i)" in APP_JS
+    assert "t('results.copied')" in APP_JS
+    assert "copyFirst" not in APP_JS and "rewrite-tab" not in APP_JS
+
+
+def test_share_uses_the_phone_menu_and_falls_back_to_a_download():
+    assert "navigator.canShare?.({ files: [file] })" in APP_JS and "navigator.share(" in APP_JS
+    assert "link.download = filename" in APP_JS
+
+
+def test_after_a_result_another_message_and_the_analyses_left():
+    assert "startOver('decode')" in APP_JS and "startOver('send')" in APP_JS
+    assert INDEX.count('class="quota-pill quota-mirror hidden"') == 2  # decode and send screens
+
+
+def test_history_cards_open_the_result_and_one_entry_can_be_deleted():
+    assert "data-history-open" in APP_JS and "data-history-delete" in APP_JS
+    assert "window.confirm(t('confirm.deleteOne'))" in APP_JS
+    assert "data-history-share" not in APP_JS
+
+
 def test_deleting_and_signing_out_ask_first():
     assert 'id="resetAllBtn"' not in INDEX  # no reset button on the Home, only in the settings
     for key in ("confirm.reset", "confirm.clearHistory", "confirm.lock"):

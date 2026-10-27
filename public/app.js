@@ -20,7 +20,6 @@ const JPEG_QUALITY = 0.85;
 
 let historyLog = loadJSON(STORE.history, []);
 let currentDecodeMode = 'text';
-let currentRewriteMode = 'clear';
 let lastSharePayload = null;
 let latestSendResult = null;
 let latestDecodeResult = null;
@@ -610,21 +609,25 @@ function updateRemainingFromResponse(res) {
   if (raw !== null && /^\d+$/.test(raw)) setRemaining(Number(raw));
 }
 
-// Analyses left on the Home: a warning from LOW_QUOTA down, and the end-of-trial card at 0.
+// Analyses left, on the Home and on both analysis screens: a warning from LOW_QUOTA down; at 0 the Home shows the
+// end-of-trial card and the analysis screens say the analyses are used up.
 function renderQuota() {
-  const target = $('#quotaInfo');
-  if (!target) return;
   const n = remainingAnalyses;
   $('#trialEndedHome')?.classList.toggle('hidden', n !== 0);
   if (n === 0) $('#trialEndedTitle').textContent = trialEndedTitle('exhausted');
-  if (n === null || n === 0) {
-    target.textContent = '';
-    target.classList.add('hidden');
-    return;
+  const text = n === null ? '' : n === 0 ? trialEndedTitle('exhausted')
+    : n === 1 ? t('home.quota.one') : n <= LOW_QUOTA ? t('home.quota.low', { n }) : t('home.quota.left', { n });
+  const home = $('#quotaInfo');
+  if (home) {
+    home.textContent = n === 0 ? '' : text;
+    home.classList.toggle('hidden', n === null || n === 0);
+    home.classList.toggle('warn', n !== null && n <= LOW_QUOTA);
   }
-  target.textContent = n === 1 ? t('home.quota.one') : n <= LOW_QUOTA ? t('home.quota.low', { n }) : t('home.quota.left', { n });
-  target.classList.toggle('warn', n <= LOW_QUOTA);
-  target.classList.remove('hidden');
+  $$('.quota-mirror').forEach((pill) => {
+    pill.textContent = text;
+    pill.classList.toggle('hidden', n === null);
+    pill.classList.toggle('warn', n !== null && n <= LOW_QUOTA);
+  });
 }
 
 function registerInstall() {
@@ -707,6 +710,11 @@ function scrollSectionIntoView(target) {
 }
 
 function setDecodeMode(mode) {
+  // Another kind of input: the result of the previous one goes (it stays in the history).
+  if (mode !== currentDecodeMode) {
+    latestDecodeResult = null;
+    hideResult('#decodeResult');
+  }
   currentDecodeMode = mode;
   $$('.tab').forEach((tab) => tab.classList.toggle('active', tab.dataset.decodeMode === mode));
   ['text', 'voice', 'image'].forEach((key) => {
@@ -934,24 +942,68 @@ function renderDecodeResult(result, source, text, { fresh = false } = {}) {
     </section>
     <section class="card stack-sm">
       <strong>${escapeHTML(t('results.replies'))}</strong>
-      <div class="reply-grid">${result.replies.map((r) => `<div class="reply-card"><h4>${escapeHTML(r.style)}</h4><p>${escapeHTML(r.text)}</p></div>`).join('')}</div>
-      <div class="download-row">
-        <button class="ghost" id="copyBestReply">${escapeHTML(t('results.copyFirst'))}</button>
-        <button class="primary" id="shareDecodeBtn">${escapeHTML(t('results.download'))}</button>
-      </div>
-    </section>`;
-  $('#copyBestReply')?.addEventListener('click', async () => { await copyText(result.replies[0]?.text || ''); });
+      <div class="reply-grid">${result.replies.map((r, i) => copyCard(r.style, r.text, i)).join('')}</div>
+      <button class="ghost" id="shareDecodeBtn">${escapeHTML(t('results.share'))}</button>
+    </section>
+    <button class="primary again-btn" data-again="decode">${escapeHTML(t('results.againDecode'))}</button>`;
+  bindCopyButtons(target, result.replies.map((r) => r.text));
   $('#shareDecodeBtn')?.addEventListener('click', () => {
     lastSharePayload = { title: result.verdict, subtitle: result.meaning, badge: sourceLabel(source), chips: result.flags.slice(0,3), footer: t('share.footer'), type: 'decode' };
-    downloadShareCard('bys_decode_share.png');
+    shareCard('before-you-send.png');
   });
+  target.querySelector('[data-again]')?.addEventListener('click', () => startOver('decode'));
   scrollSectionIntoView(target);
+}
+
+// A ready-to-send text with its own «Copy» button (replies and rewritten versions).
+function copyCard(title, text, index) {
+  return `<div class="reply-card"><div class="reply-head"><h4>${escapeHTML(title)}</h4><button class="ghost small copy-btn" data-copy="${index}">${escapeHTML(t('results.copy'))}</button></div><p>${escapeHTML(text)}</p></div>`;
+}
+
+function bindCopyButtons(target, texts) {
+  $$('[data-copy]', target).forEach((btn) => btn.addEventListener('click', async () => {
+    await copyText(texts[Number(btn.dataset.copy)] || '');
+    $$('[data-copy]', target).forEach((other) => { other.textContent = t('results.copy'); other.classList.remove('done'); });
+    btn.textContent = t('results.copied');
+    btn.classList.add('done');
+    setTimeout(() => { btn.textContent = t('results.copy'); btn.classList.remove('done'); }, 2000);
+  }));
+}
+
+// «Analyze another message»: empty fields and no result, ready for the next one.
+function startOver(kind) {
+  if (kind === 'send') {
+    $('#sendInput').value = '';
+    $('#sendReplyTo').value = '';
+    $('#sendReplyToBox').open = false;
+    latestSendResult = null;
+    hideResult('#sendResult');
+    window.scrollTo({ top: 0 });
+    $('#sendInput').focus();
+    return;
+  }
+  ['#decodeTextInput', '#voiceTranscript', '#imageExtractedText', '#voiceUpload', '#imageUpload'].forEach((sel) => { const el = $(sel); if (el) el.value = ''; });
+  const player = $('#voicePlayer');
+  player.pause();
+  player.removeAttribute('src');
+  player.classList.add('hidden');
+  $('#imagePreview').classList.add('hidden');
+  latestDecodeResult = null;
+  hideResult('#decodeResult');
+  window.scrollTo({ top: 0 });
+  ({ text: $('#decodeTextInput'), voice: $('#voiceTranscript'), image: $('#imageExtractedText') })[currentDecodeMode]?.focus();
+}
+
+function hideResult(sel) {
+  const target = $(sel);
+  target.innerHTML = '';
+  target.classList.add('hidden');
 }
 
 function renderSendResult(result, text, { fresh = false } = {}) {
   const target = $('#sendResult');
   target.classList.remove('hidden');
-  currentRewriteMode = 'clear';
+  const versions = ['clear', 'warm', 'firm', 'short'];
   target.innerHTML = `
     ${resultNotice(result, fresh)}
     <section class="card stack-sm">
@@ -968,23 +1020,16 @@ function renderSendResult(result, text, { fresh = false } = {}) {
     </section>
     <section class="card stack-sm">
       <strong>${escapeHTML(t('results.versions'))}</strong>
-      <div class="rewrite-tabs">${['clear','warm','firm','short'].map((key)=>`<button class="rewrite-tab ${key==='clear'?'active':''}" data-rewrite="${key}">${escapeHTML(displayLabel(key))}</button>`).join('')}</div>
-      <div id="rewriteOutput" class="output-box">${escapeHTML(result.rewrites.clear)}</div>
-      <div class="download-row">
-        <button class="ghost" id="copyRewriteBtn">${escapeHTML(t('results.copyThis'))}</button>
-        <button class="primary" id="shareSendBtn">${escapeHTML(t('results.download'))}</button>
-      </div>
-    </section>`;
-  $$('.rewrite-tab', target).forEach((btn) => btn.addEventListener('click', () => {
-    currentRewriteMode = btn.dataset.rewrite;
-    $$('.rewrite-tab', target).forEach((b) => b.classList.toggle('active', b === btn));
-    $('#rewriteOutput').textContent = result.rewrites[currentRewriteMode];
-  }));
-  $('#copyRewriteBtn')?.addEventListener('click', async () => { await copyText(result.rewrites[currentRewriteMode]); });
+      <div class="reply-grid">${versions.map((key, i) => copyCard(displayLabel(key), result.rewrites[key], i)).join('')}</div>
+      <button class="ghost" id="shareSendBtn">${escapeHTML(t('results.share'))}</button>
+    </section>
+    <button class="primary again-btn" data-again="send">${escapeHTML(t('results.againSend'))}</button>`;
+  bindCopyButtons(target, versions.map((key) => result.rewrites[key]));
   $('#shareSendBtn')?.addEventListener('click', () => {
     lastSharePayload = { title: t('share.score', { score: result.score }), subtitle: result.issue, badge: result.label, chips: topSendChips(result), footer: t('share.footer'), type: 'send' };
-    downloadShareCard('bys_sendscore_share.png');
+    shareCard('before-you-send.png');
   });
+  target.querySelector('[data-again]')?.addEventListener('click', () => startOver('send'));
   scrollSectionIntoView(target);
 }
 
@@ -997,22 +1042,50 @@ function topSendChips(result) { return Object.entries(result.breakdown).sort((a,
 function metricRows(obj) { return Object.entries(obj).map(([key, value]) => `<div class="metric-row"><div class="label"><span>${escapeHTML(displayLabel(key))}</span><strong>${value}</strong></div><div class="bar"><div class="fill" style="width:${value}%"></div></div></div>`).join(''); }
 
 function saveHistory(entry) { historyLog.unshift(entry); historyLog = historyLog.slice(0, 30); persistHistory(); renderHistory(); }
+// Compact cards: the whole card opens the result; the beginning of the analyzed message shows; one entry can go.
 function renderHistory() {
   const target = $('#historyList');
   if (!historyLog.length) { target.innerHTML = `<div class="card empty-state">${escapeHTML(t('history.empty'))}</div>`; return; }
-  target.innerHTML = historyLog.map((item, idx) => `<article class="history-card"><div class="meta">${formatDate(item.createdAt)} · ${escapeHTML(item.subtitle)}</div><h3>${escapeHTML(item.title)}</h3><p>${item.type === 'decode' ? escapeHTML(item.payload.meaning) : escapeHTML(item.payload.issue)}</p><div class="actions" style="margin-top:10px;"><button class="ghost small" data-history-open="${idx}">${escapeHTML(t('history.open'))}</button><button class="ghost small" data-history-share="${idx}">${escapeHTML(t('history.share'))}</button></div></article>`).join('');
+  target.innerHTML = historyLog.map((item, idx) => {
+    const kind = item.type === 'decode' ? sourceLabel(item.payload.source || 'text') : t('send.title');
+    const input = item.payload.input ? `<span class="history-input">“${escapeHTML(item.payload.input)}”</span>` : '';
+    const summary = item.type === 'decode' ? item.payload.meaning : item.payload.issue;
+    return `<article class="history-card"><button class="history-open" data-history-open="${idx}"><span class="meta">${formatDate(item.createdAt)} · ${escapeHTML(kind)}</span><span class="history-title">${escapeHTML(item.title)}</span>${input}<span class="history-summary">${escapeHTML(summary)}</span></button><button class="history-delete" data-history-delete="${idx}" aria-label="${escapeHTML(t('history.delete'))}" title="${escapeHTML(t('history.delete'))}">×</button></article>`;
+  }).join('');
   $$('[data-history-open]', target).forEach((btn) => btn.addEventListener('click', () => openFromHistory(Number(btn.dataset.historyOpen))));
-  $$('[data-history-share]', target).forEach((btn) => btn.addEventListener('click', () => shareFromHistory(Number(btn.dataset.historyShare))));
+  $$('[data-history-delete]', target).forEach((btn) => btn.addEventListener('click', () => {
+    if (!window.confirm(t('confirm.deleteOne'))) return;
+    historyLog.splice(Number(btn.dataset.historyDelete), 1);
+    persistHistory();
+    renderHistory();
+  }));
 }
 function openFromHistory(index) { const item = historyLog[index]; if (!item) return; if (item.type === 'decode') { setDecodeMode(item.payload.source || 'text'); openScreen('screen-decode', { scrollTop: false, restoreScroll: false }); renderDecodeResult(item.payload, item.payload.source || 'text', item.payload.input || ''); } else { openScreen('screen-send', { scrollTop: false, restoreScroll: false }); renderSendResult(item.payload, item.payload.input || ''); } }
-function shareFromHistory(index) {
-  const item = historyLog[index]; if (!item) return;
-  if (item.type === 'decode') { lastSharePayload = { title:item.payload.verdict, subtitle:item.payload.meaning, badge:sourceLabel(item.payload.source || 'text'), chips:item.payload.flags.slice(0,3), footer: t('share.footer'), type:'decode' }; downloadShareCard('bys_decode_share.png'); }
-  else { lastSharePayload = { title:t('share.score',{score:item.payload.score}), subtitle:item.payload.issue, badge:item.payload.label, chips:topSendChips(item.payload), footer: t('share.footer'), type:'send' }; downloadShareCard('bys_sendscore_share.png'); }
+
+// «Share»: the result card as an image through the phone's share menu; where that is missing, it is downloaded.
+async function shareCard(filename) {
+  if (!lastSharePayload) return;
+  const canvas = drawShareCard();
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+  if (!blob) return;
+  const file = new File([blob], filename, { type: 'image/png' });
+  if (navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: t('app.name') });
+      return;
+    } catch (error) {
+      if (error?.name === 'AbortError') return; // the user closed the menu
+    }
+  }
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.download = filename;
+  link.href = url;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
-function downloadShareCard(filename) {
-  if (!lastSharePayload) return;
+function drawShareCard() {
   const canvas = $('#shareCanvas'); const ctx = canvas.getContext('2d'); ctx.clearRect(0,0,canvas.width,canvas.height);
   const gradient = ctx.createLinearGradient(0,0,0,canvas.height); gradient.addColorStop(0,'#14203f'); gradient.addColorStop(1,'#0a1020'); ctx.fillStyle = gradient; ctx.fillRect(0,0,canvas.width,canvas.height);
   const glow = ctx.createRadialGradient(canvas.width*0.2, canvas.height*0.15, 40, canvas.width*0.2, canvas.height*0.15, 520); glow.addColorStop(0,'rgba(138, 162, 255, 0.45)'); glow.addColorStop(1,'rgba(138, 162, 255, 0)'); ctx.fillStyle = glow; ctx.fillRect(0,0,canvas.width,canvas.height);
@@ -1060,8 +1133,7 @@ function downloadShareCard(filename) {
     maxLines: 2
   });
   ctx.fillStyle='#8ea4ff'; ctx.font='600 28px Inter, Arial'; ctx.fillText(lastSharePayload.footer,132,1662);
-
-  const link = document.createElement('a'); link.download = filename; link.href = canvas.toDataURL('image/png'); link.click();
+  return canvas;
 }
 
 function roundRect(ctx, x, y, w, h, r, fill, stroke) { ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); if (fill){ctx.fillStyle=fill;ctx.fill();} if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.stroke();}}
