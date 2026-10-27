@@ -403,6 +403,12 @@ def create_app(settings: Optional[Settings] = None, *, public_dir: Path = PUBLIC
 
     # --- admin (GuardMiddleware allows only 127.0.0.1, unproxied, with the bearer token) --
 
+    # For the n8n monitor: the service answers, and analysis.blocked says whether Anthropic is refusing every call
+    # ("credit": credit or spend limit used up, "key": key refused, "model": model not available) since the last success.
+    @app.get("/admin/status")
+    def admin_status() -> dict[str, Any]:
+        return {"ok": True, "analysis": analyzer.health(), "voice": settings.voice_ready}
+
     @app.post("/admin/codes", status_code=201)
     def admin_create_code(payload: AdminCodePayload) -> dict[str, Any]:
         quota = payload.quota if payload.quota is not None else (settings.trial_quota if payload.plan == "trial" else None)

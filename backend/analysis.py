@@ -56,6 +56,34 @@ class AnalysisFailed(AnalysisError):
     """Any other failure: API error, network error, truncated or invalid output."""
 
 
+# Kinds of provider problems the monitor (GET /admin/status, n8n) cares about: until the next successful call they
+# stop every analysis, whoever sends it. Anything else (busy, network, a refused or malformed answer) is transient.
+ACCOUNT_PROBLEMS = ("credit", "key", "model")
+_CREDIT_WORDS = ("credit balance", "usage limit", "spend limit", "billing")
+
+
+def problem_kind(exc: AnalysisError) -> Optional[str]:
+    """What an analysis error says about the provider: "credit", "key", "model", "busy", "network", "error" or None.
+
+    None means Claude did answer (a refusal, a truncated or invalid output): the account works.
+    """
+    cause = exc.__cause__
+    if isinstance(cause, anthropic.APIStatusError):
+        if any(word in str(cause.message).lower() for word in _CREDIT_WORDS):
+            return "credit"
+        if cause.status_code in (401, 403):
+            return "key"
+        if cause.status_code == 404:
+            return "model"
+    if isinstance(exc, AnalysisBusy):
+        return "busy"
+    if isinstance(cause, anthropic.APIConnectionError):
+        return "network"
+    if isinstance(cause, anthropic.APIStatusError):
+        return "error"
+    return None
+
+
 @dataclass(frozen=True)
 class ClaudeRequest:
     system: str
@@ -334,6 +362,9 @@ class Analyzer:
         self._max_retries = max_retries
         self._client = client
         self._lock = threading.Lock()
+        # For the monitor: when Claude last answered, and the last provider problem (kind, time).
+        self._last_ok_at: Optional[float] = None
+        self._last_problem: Optional[tuple[str, float]] = None
 
     @classmethod
     def from_settings(cls, settings: Settings, client: Any = None) -> Analyzer:
@@ -361,9 +392,38 @@ class Analyzer:
         return self._client
 
     def run(self, request: ClaudeRequest, *, model: Optional[str] = None, effort: Optional[str] = None) -> ClaudeResult:
-        return call_claude(
-            self.client(), request, model=model or self.model, effort=effort or self.effort, max_tokens=self.max_tokens
+        try:
+            result = call_claude(
+                self.client(), request, model=model or self.model, effort=effort or self.effort, max_tokens=self.max_tokens
+            )
+        except AnalysisUnavailable:
+            raise
+        except AnalysisError as exc:
+            kind = problem_kind(exc)
+            if kind is None:
+                self._last_ok_at = time.time()
+            else:
+                self._last_problem = (kind, time.time())
+            raise
+        self._last_ok_at = time.time()
+        return result
+
+    def health(self) -> dict[str, Any]:
+        """For GET /admin/status: whether a key is set, when Claude last answered, the last provider problem."""
+
+        def iso(moment: Optional[float]) -> Optional[str]:
+            return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(moment)) if moment is not None else None
+
+        problem = self._last_problem
+        blocked = problem is not None and problem[0] in ACCOUNT_PROBLEMS and (
+            self._last_ok_at is None or problem[1] > self._last_ok_at
         )
+        return {
+            "available": self.available,
+            "lastOkAt": iso(self._last_ok_at),
+            "lastProblem": {"kind": problem[0], "at": iso(problem[1])} if problem else None,
+            "blocked": problem[0] if blocked else None,
+        }
 
     def decode_text(self, message: str, lang: str, **overrides: Any) -> tuple[dict[str, Any], ClaudeResult]:
         call = self.run(decode_text_request(message, lang), **overrides)

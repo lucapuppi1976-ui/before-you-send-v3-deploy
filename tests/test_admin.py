@@ -6,8 +6,10 @@ import io
 import re
 import sys
 
+import anthropic
+import httpx2
 import pytest
-from conftest import ADMIN_TOKEN, ROOT
+from conftest import ADMIN_TOKEN, ROOT, unlock
 
 from backend.codes import CODE_ALPHABET, CodeStore, generate_code
 
@@ -111,3 +113,44 @@ def test_generated_codes_are_human_typable():
     for code in samples:
         assert CODE_RE.fullmatch(code)
         assert not set(code[4:].replace("-", "")) & set("01OIL")
+
+
+def _api_error(cls, status: int, message: str):
+    request = httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
+    return cls(message, response=httpx2.Response(status, request=request), body={"error": {"type": "x", "message": message}})
+
+
+def test_status_tells_the_monitor_when_anthropic_refuses_every_analysis(make_client, claude):
+    client = make_client(client=LOCAL, admin_token=ADMIN_TOKEN)
+    unlock(client)
+
+    def status():
+        response = client.get("/admin/status", headers=AUTH)
+        assert response.status_code == 200
+        return response.json()
+
+    first = status()
+    assert first["ok"] is True and first["analysis"]["available"] is True
+    assert first["analysis"]["lastOkAt"] is None and first["analysis"]["blocked"] is None
+    assert client.post("/api/decode/text", json={"text": "ciao"}).status_code == 200
+    assert status()["analysis"]["lastOkAt"] and status()["analysis"]["blocked"] is None
+    # Credit or spend limit used up: every analysis fails until someone tops it up.
+    claude.reply_with(_api_error(anthropic.BadRequestError, 400, "Your credit balance is too low to access the Anthropic API."))
+    assert client.post("/api/decode/text", json={"text": "ciao"}).status_code == 502
+    assert status()["analysis"]["blocked"] == "credit"
+    assert status()["analysis"]["lastProblem"]["kind"] == "credit"
+    claude.reply_with(_api_error(anthropic.AuthenticationError, 401, "invalid x-api-key"))
+    assert client.post("/api/score/text", json={"text": "ciao"}).status_code == 502
+    assert status()["analysis"]["blocked"] == "key"
+    # The next analysis that works clears it; a busy Anthropic is not a block.
+    assert client.post("/api/decode/text", json={"text": "ciao"}).status_code == 200
+    assert status()["analysis"]["blocked"] is None
+    claude.reply_with(*[_api_error(anthropic.InternalServerError, 529, "overloaded")] * 3)
+    client.post("/api/decode/text", json={"text": "ciao"})
+    assert status()["analysis"]["blocked"] is None
+
+
+def test_status_is_admin_only(make_client):
+    assert make_client(admin_token=ADMIN_TOKEN).get("/admin/status", headers=AUTH).status_code == 404  # remote
+    local = make_client(client=LOCAL, admin_token=ADMIN_TOKEN)
+    assert local.get("/admin/status").status_code == 401
