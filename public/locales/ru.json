@@ -115,6 +115,8 @@
   "results.againSend": "Проверить другое сообщение",
   "results.transcript": "Расшифровка",
   "results.extracted": "Текст со скриншота",
+  "results.translation": "Перевод на русский",
+  "results.replyTranslation": "По-русски",
   "results.issue": "Что улучшить",
   "results.versions": "Варианты для отправки",
   "results.example": "Пример",

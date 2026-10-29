@@ -1129,11 +1129,16 @@ function resultNotice(result, fresh) {
 function renderDecodeResult(result, source, text, { fresh = false } = {}) {
   const target = $('#decodeResult');
   target.classList.remove('hidden');
-  const extractedBlock = source === 'image' && result.extracted_text
-    ? `<section class="card stack-sm"><strong>${escapeHTML(t('results.extracted'))}</strong><p class="muted">${escapeHTML(result.extracted_text)}</p></section>`
+  const heard = source === 'image' && result.extracted_text
+    ? `<strong>${escapeHTML(t('results.extracted'))}</strong><p class="muted">${escapeHTML(result.extracted_text)}</p>`
     : source === 'voice' && result.transcript
-    ? `<section class="card stack-sm"><strong>${escapeHTML(t('results.transcript'))}</strong><p class="muted">${escapeHTML(result.transcript)}</p></section>`
+    ? `<strong>${escapeHTML(t('results.transcript'))}</strong><p class="muted">${escapeHTML(result.transcript)}</p>`
     : '';
+  // The message in the language of the app when it is written in another one (Luca, 29/10: a voice note in Slovak).
+  const translated = result.message_translation
+    ? `<div class="translation"><strong>${escapeHTML(t('results.translation'))}</strong><p>${escapeHTML(result.message_translation)}</p></div>`
+    : '';
+  const extractedBlock = heard || translated ? `<section class="card stack-sm">${heard}${translated}</section>` : '';
   const eyebrow = result.example ? `${t('results.example')} · ${sourceLabel(source)}` : sourceLabel(source);
   target.innerHTML = `
     ${resultNotice(result, fresh)}
@@ -1153,7 +1158,7 @@ function renderDecodeResult(result, source, text, { fresh = false } = {}) {
     </section>
     <section class="card stack-sm">
       <strong>${escapeHTML(t('results.replies'))}</strong>
-      <div class="reply-grid">${result.replies.map((r, i) => copyCard(r.style, r.text, i)).join('')}</div>
+      <div class="reply-grid">${result.replies.map((r, i) => copyCard(r.style, r.text, i, r.translation)).join('')}</div>
       <button class="ghost" id="shareDecodeBtn">${escapeHTML(t('results.share'))}</button>
     </section>
     <button class="primary again-btn" data-again="decode">${escapeHTML(t('results.againDecode'))}</button>`;
@@ -1166,9 +1171,13 @@ function renderDecodeResult(result, source, text, { fresh = false } = {}) {
   scrollSectionIntoView(target);
 }
 
-// A ready-to-send text with its own «Copy» button (replies and rewritten versions).
-function copyCard(title, text, index) {
-  return `<div class="reply-card"><div class="reply-head"><h4>${escapeHTML(title)}</h4><button class="ghost small copy-btn" data-copy="${index}">${escapeHTML(t('results.copy'))}</button></div><p>${escapeHTML(text)}</p></div>`;
+// A ready-to-send text with its own «Copy» button (replies and rewritten versions). Under a reply in another language,
+// what it says in the language of the app, so the user knows what they send; «Copy» still copies only the text to send.
+function copyCard(title, text, index, translation = '') {
+  const meaning = translation
+    ? `<div class="reply-translation"><span class="result-kicker">${escapeHTML(t('results.replyTranslation'))}</span><p>${escapeHTML(translation)}</p></div>`
+    : '';
+  return `<div class="reply-card"><div class="reply-head"><h4>${escapeHTML(title)}</h4><button class="ghost small copy-btn" data-copy="${index}">${escapeHTML(t('results.copy'))}</button></div><p>${escapeHTML(text)}</p>${meaning}</div>`;
 }
 
 function bindCopyButtons(target, texts) {

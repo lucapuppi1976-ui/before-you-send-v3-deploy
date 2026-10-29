@@ -115,6 +115,8 @@
   "results.againSend": "Check another message",
   "results.transcript": "Transcript",
   "results.extracted": "Text read from screenshot",
+  "results.translation": "Translated into English",
+  "results.replyTranslation": "In English",
   "results.issue": "What to improve",
   "results.versions": "Versions you can send",
   "results.example": "Example",

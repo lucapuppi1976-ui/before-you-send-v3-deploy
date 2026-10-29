@@ -115,6 +115,8 @@
   "results.againSend": "Weitere Nachricht prüfen",
   "results.transcript": "Abschrift",
   "results.extracted": "Aus dem Screenshot gelesener Text",
+  "results.translation": "Ins Deutsche übersetzt",
+  "results.replyTranslation": "Auf Deutsch",
   "results.issue": "Was sich verbessern lässt",
   "results.versions": "Fassungen zum Senden",
   "results.example": "Beispiel",

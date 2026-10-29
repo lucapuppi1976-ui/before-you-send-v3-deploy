@@ -160,10 +160,19 @@ def test_the_score_can_include_the_message_it_replies_to():
 
 
 def test_every_reply_and_version_can_be_copied():
-    assert "copyCard(r.style, r.text, i)" in APP_JS
+    assert "copyCard(r.style, r.text, i, r.translation)" in APP_JS
     assert "copyCard(displayLabel(key), result.rewrites[key], i)" in APP_JS
     assert "t('results.copied')" in APP_JS
     assert "copyFirst" not in APP_JS and "rewrite-tab" not in APP_JS
+
+
+def test_the_message_and_every_reply_also_show_their_translation():
+    # Luca, 29/10: a voice note in Slovak for an Italian user, who must know what it says and what they send.
+    assert "result.message_translation" in APP_JS and "t('results.translation')" in APP_JS
+    assert "t('results.replyTranslation')" in APP_JS
+    assert "bindCopyButtons(target, result.replies.map((r) => r.text))" in APP_JS  # «Copia» copies only the text to send
+    for data in LOCALES.values():
+        assert data["results.translation"] and data["results.replyTranslation"]
 
 
 def test_share_uses_the_phone_menu_and_falls_back_to_a_download():

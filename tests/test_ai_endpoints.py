@@ -11,7 +11,7 @@ from conftest import DECODE_PAYLOAD, JPEG_BYTES, PNG_BYTES, SCORE_PAYLOAD, fake_
 
 from backend.analysis import FALLBACK_BETA
 
-DECODE_KEYS = {"verdict", "meaning", "flags", "guardrails", "tones", "replies", "source", "input", "lang"}
+DECODE_KEYS = {"message_translation", "verdict", "meaning", "flags", "guardrails", "tones", "replies", "source", "input", "lang"}
 SCORE_KEYS = {"score", "label", "issue", "breakdown", "rewrites", "input", "lang"}
 TONE_KEYS = ["warmth", "clarity", "interest", "respect", "urgency"]
 BREAKDOWN_KEYS = ["frustration", "clarity", "warmth", "pressure"]
@@ -32,7 +32,7 @@ def assert_decode_shape(body: dict) -> None:
     assert all(isinstance(value, int) and 0 <= value <= 100 for value in body["tones"].values())
     assert len(body["replies"]) == 3
     for reply in body["replies"]:
-        assert set(reply) == {"style", "text"}
+        assert set(reply) == {"style", "text", "translation"}
         assert isinstance(reply["style"], str) and reply["style"]
         assert isinstance(reply["text"], str) and reply["text"]
 
@@ -63,7 +63,7 @@ def test_claude_request_uses_structured_output_effort_and_the_fallback_branch(un
     assert output_format["type"] == "json_schema"
     schema = output_format["schema"]
     assert schema["additionalProperties"] is False
-    assert set(schema["required"]) == {"verdict", "meaning", "flags", "guardrails", "tones", "replies"}
+    assert set(schema["required"]) == {"message_translation", "verdict", "meaning", "flags", "guardrails", "tones", "replies"}
     serialized = json.dumps(schema)
     for unsupported in ("minimum", "maximum", "minItems", "maxItems", "minLength", "maxLength"):
         assert unsupported not in serialized
@@ -203,7 +203,35 @@ def test_normalization_clamps_and_fixes_list_lengths(unlocked, claude):
     assert body["flags"][0] == "Affetto" and len(set(body["flags"])) == 3
     assert body["guardrails"] == ["Uno", "Due"]
     assert body["tones"] == {"warmth": 100, "clarity": 0, "interest": 56, "respect": 80, "urgency": 0}
-    assert body["replies"][0] == {"style": "Neutra", "text": "Anch'io! A stasera."}
+    assert body["replies"][0] == {"style": "Neutra", "text": "Anch'io! A stasera.", "translation": ""}
+
+def test_decode_keeps_the_translations_and_drops_the_ones_that_only_repeat(unlocked, claude):
+    # Luca, 29/10: a voice note in Slovak for an Italian user, who must also know what each reply says.
+    claude.reply_with(
+        text_reply(
+            {
+                **DECODE_PAYLOAD,
+                "message_translation": " Ciao, oggi non ce la faccio: possiamo spostarlo a domani? ",
+                "replies": [
+                    {"style": "Neutra", "text": "Jasné, zajtra mi to vyhovuje.", "translation": "Certo, domani mi va bene."},
+                    {"style": "Calda", "text": "Žiadny problém, uvidíme sa zajtra!", "translation": "žiadny problém, uvidíme sa zajtra!"},
+                    {"style": "Diretta", "text": "Dobre, o koľkej?"},
+                ],
+            }
+        )
+    )
+    message = "Ahoj, dnes to nestihnem. Môžeme to presunúť na zajtra?"
+    body = unlocked.post("/api/decode/text", json={"text": message, "lang": "it"}).json()
+    assert_decode_shape(body)
+    assert body["message_translation"] == "Ciao, oggi non ce la faccio: possiamo spostarlo a domani?"
+    assert [reply["text"] for reply in body["replies"]][0] == "Jasné, zajtra mi to vyhovuje."
+    assert [reply["translation"] for reply in body["replies"]] == ["Certo, domani mi va bene.", "", ""]
+
+
+def test_decode_drops_a_message_translation_that_only_repeats_the_message(unlocked, claude):
+    claude.reply_with(text_reply({**DECODE_PAYLOAD, "message_translation": "ci vediamo domani?"}))
+    body = unlocked.post("/api/decode/text", json={"text": "Ci vediamo domani?", "lang": "it"}).json()
+    assert body["message_translation"] == ""
 
 
 def test_score_normalization_clamps_and_fills_missing_rewrites(unlocked, claude):

@@ -527,6 +527,13 @@ details.reply-to textarea { min-height: 96px; margin-top: 8px; }
 .copy-btn.done { color: var(--success); border-color: rgba(121,221,159,.35); }
 .again-btn { width: 100%; }
 
+/* Results: the message and each reply also in the language of the app, when they are written in another one. */
+.translation { display: grid; gap: 6px; }
+.translation:not(:first-child) { padding-top: 10px; border-top: 1px dashed var(--line); }
+.translation p { margin: 0; }
+.reply-translation { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); }
+.reply-translation .result-kicker { margin-bottom: 4px; }
+
 /* History: compact cards that open the result; one entry can be deleted. */
 .history-card { position: relative; padding: 0; }
 .history-open {

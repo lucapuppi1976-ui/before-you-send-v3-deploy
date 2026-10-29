@@ -294,21 +294,35 @@ def _normalize_replies(items: Any, lang: str) -> list[dict[str, str]]:
         if not reply or reply.lower() in seen:
             continue
         seen.add(reply.lower())
-        out.append({"style": single_line(item.get("style"), 40) or styles[len(out)], "text": reply})
+        # What the reply says in the language of the app, so the user knows what they send (empty when it is the same).
+        meaning = _translation(item.get("translation"), reply, 1000)
+        out.append({"style": single_line(item.get("style"), 40) or styles[len(out)], "text": reply, "translation": meaning})
         if len(out) == 3:
             return out
     for index in range(len(out), 3):
-        out.append({"style": styles[index], "text": fill[index]})
+        out.append({"style": styles[index], "text": fill[index], "translation": ""})
     return out
 
 
-def normalize_decode(data: dict[str, Any], lang: str, *, include_extracted: bool = False) -> dict[str, Any]:
+def _translation(value: Any, original: str, max_len: int) -> str:
+    """A translation into the language of the app, or "" when there is none or it only repeats the original."""
+    translated = multi_line(value, max_len)
+    return "" if translated.casefold() == original.casefold() else translated
+
+
+def normalize_decode(
+    data: dict[str, Any], lang: str, *, include_extracted: bool = False, original: str = ""
+) -> dict[str, Any]:
+    """`original` is the message or transcript sent to Claude: a «translation» that only repeats it is dropped."""
     lang = canonical_lang(lang)
     tones = data.get("tones") if isinstance(data.get("tones"), dict) else {}
     result: dict[str, Any] = {}
     if include_extracted:
         result["extracted_text"] = multi_line(data.get("extracted_text"), MAX_TEXT_CHARS)
         result["extraction_confidence"] = clamp_0_100(data.get("extraction_confidence"))
+        original = original or result["extracted_text"]
+    # The received message in the language of the app (Luca, 29/10: a voice note in Slovak, an Italian user).
+    result["message_translation"] = _translation(data.get("message_translation"), multi_line(original, MAX_TEXT_CHARS), MAX_TEXT_CHARS)
     result.update(
         verdict=single_line(data.get("verdict"), 120) or text(lang, "verdict_fallback"),
         meaning=single_line(data.get("meaning"), 600) or text(lang, "meaning_fallback"),
@@ -427,7 +441,7 @@ class Analyzer:
 
     def decode_text(self, message: str, lang: str, **overrides: Any) -> tuple[dict[str, Any], ClaudeResult]:
         call = self.run(decode_text_request(message, lang), **overrides)
-        return normalize_decode(call.data, lang), call
+        return normalize_decode(call.data, lang, original=message), call
 
     def decode_image(self, image: bytes, media_type: str, lang: str, **overrides: Any) -> tuple[dict[str, Any], ClaudeResult]:
         call = self.run(decode_image_request(image, media_type, lang), **overrides)
