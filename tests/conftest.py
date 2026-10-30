@@ -23,7 +23,7 @@ SECRET = "test-gate-secret-" + "x" * 32
 ADMIN_TOKEN = "test-admin-token-" + "y" * 32
 
 DECODE_PAYLOAD: dict[str, Any] = {
-    "message_language": "italiano",
+    "message_language": "it",
     "message_translation": "",
     "verdict": "Rimanda con gentilezza",
     "meaning": "Ti rassicura, ma sposta la cosa più avanti senza una data.",
@@ -31,9 +31,9 @@ DECODE_PAYLOAD: dict[str, Any] = {
     "guardrails": ["Non è un rifiuto definitivo.", "Non è nemmeno una promessa."],
     "tones": {"warmth": 72, "clarity": 38, "interest": 45, "respect": 81, "urgency": 12},
     "replies": [
-        {"style": "Neutra", "text": "Va bene, sentiamoci più avanti.", "translation": ""},
-        {"style": "Calda", "text": "Nessun problema, quando vuoi ci sentiamo.", "translation": ""},
-        {"style": "Diretta", "text": "Ok, ti va di sentirci la prossima settimana?", "translation": ""},
+        {"style": "Neutra", "text": "Va bene, sentiamoci più avanti."},
+        {"style": "Calda", "text": "Nessun problema, quando vuoi ci sentiamo."},
+        {"style": "Diretta", "text": "Ok, ti va di sentirci la prossima settimana?"},
     ],
 }
 IMAGE_PAYLOAD: dict[str, Any] = {

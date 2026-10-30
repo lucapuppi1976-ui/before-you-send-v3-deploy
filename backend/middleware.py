@@ -16,7 +16,9 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from .gate import Gate
 from .ratelimit import RateLimiter
 
-AI_PATHS = frozenset({"/api/decode/text", "/api/score/text", "/api/decode/audio", "/api/decode/image"})
+AI_PATHS = frozenset(
+    {"/api/decode/text", "/api/score/text", "/api/decode/audio", "/api/decode/image", "/api/replies/translate"}
+)
 UNLOCK_PATH = "/api/access/unlock"
 ADMIN_PREFIX = "/admin"
 LOCALHOST = "127.0.0.1"

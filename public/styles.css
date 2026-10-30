@@ -538,6 +538,12 @@ details.reply-to textarea { min-height: 96px; margin-top: 8px; }
 .reply-translation { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); }
 .reply-translation .result-kicker { margin-bottom: 4px; }
 
+/* «Lingua delle risposte»: the language the ready replies are shown in (Luca, 30/10). */
+.reply-lang { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; color: var(--muted); font-size: .92rem; }
+.reply-lang select { background: rgba(255,255,255,0.08); color: var(--text); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; max-width: 100%; }
+.reply-lang option { background: var(--bg-2); color: var(--text); }
+.reply-lang-error { color: var(--warning); }
+
 /* History: compact cards that open the result; one entry can be deleted. */
 .history-card { position: relative; padding: 0; }
 .history-open {

@@ -170,12 +170,27 @@ def test_the_message_and_every_reply_also_show_their_translation():
     # Luca, 29/10: a voice note in Slovak for an Italian user, who must know what it says and what they send.
     assert "result.message_translation" in APP_JS and "t('results.translation')" in APP_JS
     assert "t('results.replyTranslation')" in APP_JS
-    assert "bindCopyButtons(target, result.replies.map((r) => r.text))" in APP_JS  # «Copia» copies only the text to send
     # Luca, 30/10: the versions of «Controlla come suona» too; results saved before have no translation.
     assert "result.rewrite_translations?.[key]" in APP_JS
     assert "bindCopyButtons(target, versions.map((key) => result.rewrites[key]))" in APP_JS
     for data in LOCALES.values():
         assert data["results.translation"] and data["results.replyTranslation"]
+
+
+def test_the_replies_can_be_written_in_the_language_the_user_picks():
+    # Luca, 30/10: «lo stesso che Plantatam». Claude writes the replies in the language of the app; they are shown in the
+    # language of the message or in another one picked, translated once and kept with the analysis in the history.
+    assert "apiJson('/api/replies/translate'" in APP_JS and 'id="replyLang"' in APP_JS
+    assert "'sk'" in re.search(r"const REPLY_LANGS = \[(.*?)\];", APP_JS).group(1)
+    assert "new Intl.DisplayNames([currentLang], { type: 'language' })" in APP_JS
+    assert "result.replyTranslations = { ...(result.replyTranslations || {}), [lang]: response.replies };" in APP_JS
+    assert "bindCopyButtons(grid, texts)" in APP_JS  # «Copia» copies the text shown, in the language picked
+    # The result on the screen is the one kept in the history, so its translations are saved with it.
+    assert APP_JS.count("latestDecodeResult = payload;") == 3
+    for data in LOCALES.values():
+        for key in ("results.replyLanguage", "results.messageLanguage", "results.translatingReplies", "results.translateError"):
+            assert data[key]
+        assert "{lang}" in data["results.translatingReplies"]
 
 
 def test_share_uses_the_phone_menu_and_falls_back_to_a_download():

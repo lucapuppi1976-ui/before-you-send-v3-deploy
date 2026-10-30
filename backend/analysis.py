@@ -19,7 +19,7 @@ from typing import Any, Iterable, Optional
 import anthropic
 
 from . import prompts
-from .config import MAX_TEXT_CHARS, Settings
+from .config import DEFAULT_TRANSLATE_MODEL, MAX_TEXT_CHARS, Settings
 from .i18n import canonical_lang, label_for_score, text
 
 log = logging.getLogger("bys.analysis")
@@ -150,6 +150,15 @@ def score_request(draft: str, lang: str, reply_to: Optional[str] = None) -> Clau
     )
 
 
+def replies_translation_request(replies: list[str], lang: str, target: str, context: str = "") -> ClaudeRequest:
+    """The ready replies, written in the language of the app, to be written again in the language the user picked."""
+    return ClaudeRequest(
+        system=prompts.REPLIES_TRANSLATION_SYSTEM,
+        messages=[{"role": "user", "content": prompts.replies_translation_text(replies, lang, target, context)}],
+        schema=prompts.replies_translation_schema(),
+    )
+
+
 # --- The API call ----------------------------------------------------------------------
 
 
@@ -240,6 +249,7 @@ def call_claude(client: Any, request: ClaudeRequest, *, model: str, effort: str,
 
 _WHITESPACE = re.compile(r"\s+")
 _WORD = re.compile(r"\w{3,}")
+LANGUAGE_CODE = re.compile(r"[a-z]{2,3}")  # ISO 639-1 (or 639-2 when there is no shorter one)
 
 
 def clamp_0_100(value: Any) -> int:
@@ -295,13 +305,11 @@ def _normalize_replies(items: Any, lang: str) -> list[dict[str, str]]:
         if not reply or reply.lower() in seen:
             continue
         seen.add(reply.lower())
-        # What the reply says in the language of the app, so the user knows what they send (empty when it is the same).
-        meaning = _translation(item.get("translation"), reply, 1000)
-        out.append({"style": single_line(item.get("style"), 40) or styles[len(out)], "text": reply, "translation": meaning})
+        out.append({"style": single_line(item.get("style"), 40) or styles[len(out)], "text": reply})
         if len(out) == 3:
             return out
     for index in range(len(out), 3):
-        out.append({"style": styles[index], "text": fill[index], "translation": ""})
+        out.append({"style": styles[index], "text": fill[index]})
     return out
 
 
@@ -322,7 +330,10 @@ def normalize_decode(
         result["extracted_text"] = multi_line(data.get("extracted_text"), MAX_TEXT_CHARS)
         result["extraction_confidence"] = clamp_0_100(data.get("extraction_confidence"))
         original = original or result["extracted_text"]
-    # The received message in the language of the app (Luca, 29/10: a voice note in Slovak, an Italian user).
+    # The language of the message, offered first for the replies (an ISO 639-1 code, "" when it is not one), and the
+    # message in the language of the app (Luca, 29/10: a voice note in Slovak, an Italian user).
+    code = data.get("message_language")
+    result["message_language"] = code.strip().lower() if isinstance(code, str) and LANGUAGE_CODE.fullmatch(code.strip().lower()) else ""
     result["message_translation"] = _translation(data.get("message_translation"), multi_line(original, MAX_TEXT_CHARS), MAX_TEXT_CHARS)
     result.update(
         verdict=single_line(data.get("verdict"), 120) or text(lang, "verdict_fallback"),
@@ -380,12 +391,14 @@ class Analyzer:
         model: str,
         effort: str,
         max_tokens: int,
+        translate_model: str = DEFAULT_TRANSLATE_MODEL,
         timeout_seconds: float = 60.0,
         max_retries: int = 2,
         client: Any = None,
     ) -> None:
         self.model = model
         self.effort = effort
+        self.translate_model = translate_model
         self.max_tokens = max_tokens
         self._api_key = api_key
         self._timeout_seconds = timeout_seconds
@@ -403,6 +416,7 @@ class Analyzer:
             model=settings.model,
             effort=settings.effort,
             max_tokens=settings.max_tokens,
+            translate_model=settings.translate_model,
             timeout_seconds=settings.ai_timeout_seconds,
             max_retries=settings.ai_max_retries,
             client=client,
@@ -468,6 +482,28 @@ class Analyzer:
     ) -> tuple[dict[str, Any], ClaudeResult]:
         call = self.run(score_request(draft, lang, reply_to), **overrides)
         return normalize_score(call.data, lang, draft), call
+
+    def translate_replies(self, replies: list[str], lang: str, target: str, context: str = "") -> list[str]:
+        """The ready replies in the language the user picked, on a cheaper model (like «Leer en» in Plantatam). An answer
+        that gives the replies back unchanged gets one more try on the main model; then the translation fails, rather
+        than showing the replies of the app's language as if they were translated."""
+        request = replies_translation_request(replies, lang, target, context)
+        translated = _translated_replies(self.run(request, model=self.translate_model, effort="low").data, replies)
+        if translated == replies:
+            log.warning("replies translation %s -> %s came back untranslated; trying the main model", lang, target)
+            translated = _translated_replies(self.run(request, effort="low").data, replies)
+            if translated == replies:
+                raise AnalysisFailed("translation came back in the source language")
+        return translated
+
+
+def _translated_replies(data: dict[str, Any], replies: list[str]) -> list[str]:
+    """One translation per reply, in order; a missing one fails the translation (never the original in its place)."""
+    items = data.get("replies") if isinstance(data.get("replies"), list) else []
+    translated = [multi_line(item, 1000) for item in items]
+    if len(translated) != len(replies) or not all(translated):
+        raise AnalysisFailed("translation lost replies")
+    return translated
 
 
 def sniff_image_type(data: bytes) -> Optional[str]:

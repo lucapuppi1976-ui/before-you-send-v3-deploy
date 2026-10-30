@@ -16,6 +16,7 @@ PUBLIC_DIR = ROOT / "public"
 DEFAULT_MODEL = "claude-sonnet-5-5"
 DEFAULT_EFFORT = "low"
 EFFORT_LEVELS = ("low", "medium", "high", "xhigh", "max")
+DEFAULT_TRANSLATE_MODEL = "claude-haiku-5-5"
 DEFAULT_TRANSCRIBE_MODEL = "whisper-large-v3-turbo"
 DEFAULT_ACCESS_PAGE_URL = "https://bb1studio.com/before-you-send/access/"
 DEFAULT_DB_PATH = "./data/bys.db"
@@ -39,6 +40,7 @@ class Settings:
     anthropic_api_key: str = ""
     model: str = DEFAULT_MODEL
     effort: str = DEFAULT_EFFORT
+    translate_model: str = DEFAULT_TRANSLATE_MODEL  # the ready replies in the language the user picks
     max_tokens: int = 16000
     ai_timeout_seconds: float = 60.0
     ai_max_retries: int = 2
@@ -135,6 +137,7 @@ def load_settings(environ: Optional[Mapping[str, str]] = None) -> Settings:
         anthropic_api_key=_text(env, "ANTHROPIC_API_KEY"),
         model=_text(env, "BYS_MODEL", DEFAULT_MODEL),
         effort=_text(env, "BYS_EFFORT", DEFAULT_EFFORT).lower(),
+        translate_model=_text(env, "BYS_TRANSLATE_MODEL", DEFAULT_TRANSLATE_MODEL),
         max_tokens=_integer(env, "BYS_MAX_TOKENS", 16000, minimum=1024),
         ai_timeout_seconds=_number(env, "BYS_AI_TIMEOUT_SECONDS", 60.0, minimum=5.0),
         ai_max_retries=_integer(env, "BYS_AI_MAX_RETRIES", 2, minimum=0),

@@ -13,6 +13,9 @@ const DEFAULT_ACCESS_PAGE = 'https://bb1studio.com/before-you-send/';
 const CONTACT_EMAIL = 'hola@bb1studio.com';
 // Languages of the app: the same as the site (bb1studio.com).
 const LANGS = ['it', 'en', 'es', 'fr', 'de', 'ru'];
+// The languages offered for the ready replies, besides the one of the message (Luca, 30/10).
+const REPLY_LANGS = ['it', 'en', 'es', 'fr', 'de', 'pt', 'ru', 'uk', 'pl', 'cs', 'sk', 'sl', 'hr', 'sr', 'bg', 'ro', 'hu', 'el', 'tr', 'nl', 'sv', 'da', 'no', 'fi', 'ca', 'ar', 'zh', 'ja', 'ko', 'hi'];
+const LANGUAGE_CODE = /^[a-z]{2,3}$/;
 const DATE_LOCALES = { it: 'it-IT', en: 'en-US', es: 'es-ES', fr: 'fr-FR', de: 'de-DE', ru: 'ru-RU' };
 const UPLOAD_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
 const MAX_IMAGE_EDGE = 1600;
@@ -929,11 +932,12 @@ async function runDecodeText(text) {
   showLoadingDecode(t('results.loading.decode'));
   try {
     const result = await apiJson('/api/decode/text', { text, lang: currentLang });
-    latestDecodeResult = result;
-    renderDecodeResult(result, 'text', text, { fresh: true });
+    // The same object is shown and kept in the history, so the translations of the replies are kept with it.
+    const payload = { ...result, source: 'text', input: text };
+    latestDecodeResult = payload;
+    renderDecodeResult(payload, 'text', text, { fresh: true });
     saveHistory({
-      type: 'decode', title: result.verdict, subtitle: sourceLabel('text'), createdAt: new Date().toISOString(),
-      payload: { ...result, source: 'text', input: text },
+      type: 'decode', title: result.verdict, subtitle: sourceLabel('text'), createdAt: new Date().toISOString(), payload,
     });
   } catch (error) {
     showDecodeError(error);
@@ -959,9 +963,10 @@ async function runDecodeVoice() {
     else form.append('transcript', transcript);
     form.append('lang', currentLang);
     const result = await apiForm('/api/decode/audio', form);
-    latestDecodeResult = result;
-    renderDecodeResult(result, 'voice', result.transcript || transcript || '', { fresh: true });
-    saveHistory({ type:'decode', title: result.verdict, subtitle: sourceLabel('voice'), createdAt: new Date().toISOString(), payload: { ...result, source:'voice', input: result.transcript || transcript || '' } });
+    const payload = { ...result, source: 'voice', input: result.transcript || transcript || '' };
+    latestDecodeResult = payload;
+    renderDecodeResult(payload, 'voice', payload.input, { fresh: true });
+    saveHistory({ type:'decode', title: result.verdict, subtitle: sourceLabel('voice'), createdAt: new Date().toISOString(), payload });
   } catch (error) { showDecodeError(error); }
 }
 
@@ -983,9 +988,10 @@ async function runDecodeImage() {
     }
     form.append('lang', currentLang);
     const result = await apiForm('/api/decode/image', form);
-    latestDecodeResult = result;
-    renderDecodeResult(result, 'image', result.extracted_text || extractedText || '', { fresh: true });
-    saveHistory({ type:'decode', title: result.verdict, subtitle: sourceLabel('image'), createdAt: new Date().toISOString(), payload: { ...result, source:'image', input: result.extracted_text || extractedText || '' } });
+    const payload = { ...result, source: 'image', input: result.extracted_text || extractedText || '' };
+    latestDecodeResult = payload;
+    renderDecodeResult(payload, 'image', payload.input, { fresh: true });
+    saveHistory({ type:'decode', title: result.verdict, subtitle: sourceLabel('image'), createdAt: new Date().toISOString(), payload });
   } catch (error) { showDecodeError(error); }
 }
 
@@ -1158,11 +1164,13 @@ function renderDecodeResult(result, source, text, { fresh = false } = {}) {
     </section>
     <section class="card stack-sm">
       <strong>${escapeHTML(t('results.replies'))}</strong>
-      <div class="reply-grid">${result.replies.map((r, i) => copyCard(r.style, r.text, i, r.translation)).join('')}</div>
+      ${replyLanguagePicker(result)}
+      <div class="reply-grid" id="replyGrid"></div>
       <button class="ghost" id="shareDecodeBtn">${escapeHTML(t('results.share'))}</button>
     </section>
     <button class="primary again-btn" data-again="decode">${escapeHTML(t('results.againDecode'))}</button>`;
-  bindCopyButtons(target, result.replies.map((r) => r.text));
+  showReplies(result, replyLanguage(result));
+  $('#replyLang')?.addEventListener('change', (event) => showReplies(result, event.target.value));
   $('#shareDecodeBtn')?.addEventListener('click', () => {
     lastSharePayload = { title: result.verdict, subtitle: result.meaning, badge: sourceLabel(source), chips: result.flags.slice(0,3), footer: t('share.footer'), type: 'decode' };
     shareCard('before-you-send.png');
@@ -1171,11 +1179,70 @@ function renderDecodeResult(result, source, text, { fresh = false } = {}) {
   scrollSectionIntoView(target);
 }
 
-// A ready-to-send text with its own «Copy» button (replies and rewritten versions). Under a reply in another language,
+// --- «Lingua delle risposte» (Luca, 30/10: «lo stesso che Plantatam») ---------------------
+// Claude writes the replies in the language of the app. They are shown in the language of the message, or in another
+// one the user picks, translated on a cheap model with no analysis used and kept with the analysis in the history.
+// «Copy» copies the text shown; under it, the reply as Claude wrote it.
+
+function languageName(code) {
+  try {
+    return new Intl.DisplayNames([currentLang], { type: 'language' }).of(code) || code;
+  } catch {
+    return code;
+  }
+}
+function capitalized(text) { return text.charAt(0).toLocaleUpperCase(currentLang) + text.slice(1); }
+
+// Results from before 30/10 and the examples have no language code: their replies are shown as they were.
+function canPickReplyLanguage(result) { return LANGUAGE_CODE.test(result.message_language || '') && !result.example; }
+function replyLanguage(result) { return canPickReplyLanguage(result) ? result.replyLang || result.message_language : result.lang; }
+
+function replyLanguagePicker(result) {
+  if (!canPickReplyLanguage(result)) return '';
+  const message = result.message_language;
+  const others = REPLY_LANGS.filter((code) => code !== message)
+    .map((code) => [code, capitalized(languageName(code))])
+    .sort((a, b) => a[1].localeCompare(b[1], currentLang));
+  const options = [[message, `${capitalized(languageName(message))} · ${t('results.messageLanguage')}`], ...others]
+    .map(([code, label]) => `<option value="${code}">${escapeHTML(label)}</option>`).join('');
+  return `<label class="reply-lang"><span>${escapeHTML(t('results.replyLanguage'))}</span><select id="replyLang">${options}</select></label><p class="caption reply-lang-error hidden" id="replyLangError" role="alert"></p>`;
+}
+
+// The replies in `lang`: the ones Claude wrote, or their translation, asked once and kept with the analysis.
+async function showReplies(result, lang) {
+  const grid = $('#replyGrid');
+  const select = $('#replyLang');
+  const error = $('#replyLangError');
+  if (!grid) return;
+  error?.classList.add('hidden');
+  if (lang && lang !== result.lang && !(result.replyTranslations || {})[lang]) {
+    if (select) { select.value = lang; select.disabled = true; }
+    grid.innerHTML = `<div class="reply-card"><p>${escapeHTML(t('results.translatingReplies', { lang: languageName(lang) }))}</p></div>`;
+    try {
+      const response = await apiJson('/api/replies/translate', { replies: result.replies.map((r) => r.text), to: lang, lang: result.lang, context: result.input || '' });
+      result.replyTranslations = { ...(result.replyTranslations || {}), [lang]: response.replies };
+    } catch {
+      if (error) { error.textContent = t('results.translateError'); error.classList.remove('hidden'); }
+      lang = result.lang;
+    } finally {
+      if (select) select.disabled = false;
+    }
+    if (grid !== $('#replyGrid')) return; // another result is on the screen now
+  }
+  const original = !lang || lang === result.lang;
+  if (select) select.value = lang;
+  if (canPickReplyLanguage(result)) { result.replyLang = lang; persistHistory(); }
+  const texts = original ? result.replies.map((r) => r.text) : result.replyTranslations[lang];
+  const label = result.lang === currentLang ? t('results.replyTranslation') : capitalized(languageName(result.lang));
+  grid.innerHTML = result.replies.map((r, i) => (original ? copyCard(r.style, r.text, i, r.translation) : copyCard(r.style, texts[i], i, r.text, label))).join('');
+  bindCopyButtons(grid, texts);
+}
+
+// A ready-to-send text with its own «Copy» button (replies and rewritten versions). Under a text in another language,
 // what it says in the language of the app, so the user knows what they send; «Copy» still copies only the text to send.
-function copyCard(title, text, index, translation = '') {
+function copyCard(title, text, index, translation = '', label = t('results.replyTranslation')) {
   const meaning = translation
-    ? `<div class="reply-translation"><span class="result-kicker">${escapeHTML(t('results.replyTranslation'))}</span><p>${escapeHTML(translation)}</p></div>`
+    ? `<div class="reply-translation"><span class="result-kicker">${escapeHTML(label)}</span><p>${escapeHTML(translation)}</p></div>`
     : '';
   return `<div class="reply-card"><div class="reply-head"><h4>${escapeHTML(title)}</h4><button class="ghost small copy-btn" data-copy="${index}">${escapeHTML(t('results.copy'))}</button></div><p>${escapeHTML(text)}</p>${meaning}</div>`;
 }

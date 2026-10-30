@@ -7,7 +7,7 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Literal, Mapping, Optional
+from typing import Annotated, Any, Callable, Literal, Mapping, Optional
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
@@ -49,6 +49,14 @@ class TextPayload(BaseModel):
 class ScorePayload(TextPayload):
     # Optional: the message the draft replies to, so the score can take it into account.
     reply_to: Optional[str] = Field(default=None, max_length=MAX_TEXT_CHARS)
+
+
+class RepliesPayload(BaseModel):
+    # The ready replies as Claude wrote them (in `lang`), the language to write them in, and the message they answer.
+    replies: list[Annotated[str, Field(max_length=1000)]] = Field(min_length=1, max_length=3)
+    to: str = Field(pattern=r"^[a-z]{2,3}$")
+    lang: Optional[str] = Field(default="it", max_length=16)
+    context: Optional[str] = Field(default=None, max_length=MAX_TEXT_CHARS)
 
 
 class AccessPayload(BaseModel):
@@ -312,6 +320,24 @@ def create_app(settings: Optional[Settings] = None, *, public_dir: Path = PUBLIC
             return result
 
         return run_metered(request, lang, work)
+
+    @app.post("/api/replies/translate")
+    def translate_replies(payload: RepliesPayload) -> JSONResponse:
+        """The ready replies in the language the user picks (Luca, 30/10: «lo stesso che Plantatam»). Like «Leer en»
+        there, no analysis is used; the access code and the per-IP limits still apply (GuardMiddleware)."""
+        lang = canonical_lang(payload.lang)
+        replies = [reply.strip() for reply in payload.replies]
+        if not all(replies):
+            raise api_error(400, "empty_text", text(lang, "error_invalid_input"))
+        if payload.to == lang:
+            return JSONResponse({"replies": replies, "to": payload.to})
+        require_analysis(lang)
+        try:
+            translated = analyzer.translate_replies(replies, lang, payload.to, (payload.context or "").strip())
+        except AnalysisError as exc:
+            raise provider_error(exc, lang) from None
+        log.info("replies translated lang=%s to=%s count=%d", lang, payload.to, len(translated))
+        return JSONResponse({"replies": translated, "to": payload.to})
 
     @app.post("/api/decode/audio")
     def decode_audio(
