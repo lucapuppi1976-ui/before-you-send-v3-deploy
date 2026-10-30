@@ -17,6 +17,8 @@
   --radius-sm: 16px;
   --radius-xs: 12px;
   --maxw: 480px;
+  /* A dark-only app: the controls the browser draws itself (the open language list, scrollbars) are dark too. */
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -423,6 +425,8 @@ input[type="file"] {
 @keyframes spin { to { transform: rotate(360deg);} }
 
 .lang-picker select{background:rgba(255,255,255,0.08);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-width:120px;}
+/* The open list: light text on the system's white was unreadable on Windows (Luca, 30/10). */
+.lang-picker option{background:var(--bg-2);color:var(--text);}
 .lang-row{align-items:flex-start;gap:12px;}
 .visually-hidden{position:absolute;left:-9999px;}
 .result-kicker{display:block;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--primary-2);margin-bottom:6px;}
