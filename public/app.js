@@ -1240,7 +1240,7 @@ function renderSendResult(result, text, { fresh = false } = {}) {
     </section>
     <section class="card stack-sm">
       <strong>${escapeHTML(t('results.versions'))}</strong>
-      <div class="reply-grid">${versions.map((key, i) => copyCard(displayLabel(key), result.rewrites[key], i)).join('')}</div>
+      <div class="reply-grid">${versions.map((key, i) => copyCard(displayLabel(key), result.rewrites[key], i, result.rewrite_translations?.[key])).join('')}</div>
       <button class="ghost" id="shareSendBtn">${escapeHTML(t('results.share'))}</button>
     </section>
     <button class="primary again-btn" data-again="send">${escapeHTML(t('results.againSend'))}</button>`;

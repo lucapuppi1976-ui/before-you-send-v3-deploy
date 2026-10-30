@@ -23,6 +23,7 @@ SECRET = "test-gate-secret-" + "x" * 32
 ADMIN_TOKEN = "test-admin-token-" + "y" * 32
 
 DECODE_PAYLOAD: dict[str, Any] = {
+    "message_language": "italiano",
     "message_translation": "",
     "verdict": "Rimanda con gentilezza",
     "meaning": "Ti rassicura, ma sposta la cosa più avanti senza una data.",
@@ -41,6 +42,7 @@ IMAGE_PAYLOAD: dict[str, Any] = {
     **DECODE_PAYLOAD,
 }
 SCORE_PAYLOAD: dict[str, Any] = {
+    "language": "italiano",
     "score": 42,
     "label": "Da rivedere",
     "issue": "Suona più frustrato che lucido.",
@@ -51,6 +53,7 @@ SCORE_PAYLOAD: dict[str, Any] = {
         "firm": "Ho bisogno che mi dica cosa preferisci.",
         "short": "Cosa preferisci?",
     },
+    "rewrite_translations": {"clear": "", "warm": "", "firm": "", "short": ""},
 }
 
 PNG_BYTES = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64

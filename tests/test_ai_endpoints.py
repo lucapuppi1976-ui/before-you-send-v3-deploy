@@ -12,7 +12,7 @@ from conftest import DECODE_PAYLOAD, JPEG_BYTES, PNG_BYTES, SCORE_PAYLOAD, fake_
 from backend.analysis import FALLBACK_BETA
 
 DECODE_KEYS = {"message_translation", "verdict", "meaning", "flags", "guardrails", "tones", "replies", "source", "input", "lang"}
-SCORE_KEYS = {"score", "label", "issue", "breakdown", "rewrites", "input", "lang"}
+SCORE_KEYS = {"score", "label", "issue", "breakdown", "rewrites", "rewrite_translations", "input", "lang"}
 TONE_KEYS = ["warmth", "clarity", "interest", "respect", "urgency"]
 BREAKDOWN_KEYS = ["frustration", "clarity", "warmth", "pressure"]
 REWRITE_KEYS = {"clear", "warm", "firm", "short"}
@@ -63,7 +63,7 @@ def test_claude_request_uses_structured_output_effort_and_the_fallback_branch(un
     assert output_format["type"] == "json_schema"
     schema = output_format["schema"]
     assert schema["additionalProperties"] is False
-    assert set(schema["required"]) == {"message_translation", "verdict", "meaning", "flags", "guardrails", "tones", "replies"}
+    assert set(schema["required"]) == {"message_language", "message_translation", "verdict", "meaning", "flags", "guardrails", "tones", "replies"}
     serialized = json.dumps(schema)
     for unsupported in ("minimum", "maximum", "minItems", "maxItems", "minLength", "maxLength"):
         assert unsupported not in serialized
@@ -149,6 +149,26 @@ def test_screenshot_replies_follow_the_language_of_the_chat(unlocked, claude):
 def test_rewrites_keep_the_language_of_the_draft(unlocked, claude, lang, rule):
     unlocked.post("/api/score/text", json={"text": "See you on Saturday?", "lang": lang})
     assert rule in claude.last_system
+
+
+@pytest.mark.parametrize("lang", ["it", "en", "es", "fr", "de", "ru"])
+def test_replies_and_versions_avoid_symbols_in_place_of_word_endings(unlocked, claude, lang):
+    # Luca, 30/10: an Italian reply came out as «Tranquillə»; the versions also come with their translation.
+    unlocked.post("/api/decode/text", json={"text": "Ci vediamo domani?", "lang": lang})
+    assert "ə" in claude.last_system
+    unlocked.post("/api/score/text", json={"text": "See you on Saturday?", "lang": lang})
+    assert "ə" in claude.last_system and "rewrite_translations" in claude.last_system
+
+
+def test_claude_names_the_language_before_the_replies_and_the_versions(unlocked, claude):
+    # 30/10: once the versions of a Slovak draft came back in Italian. The language is written first, and the replies and
+    # the versions are asked in that language.
+    unlocked.post("/api/decode/text", json={"text": "Ahoj, zajtra?", "lang": "it"})
+    assert list(claude.last["output_config"]["format"]["schema"]["properties"])[:2] == ["message_language", "message_translation"]
+    assert "quella di message_language" in claude.last_system
+    unlocked.post("/api/score/text", json={"text": "Zajtra o siedmej?", "lang": "it"})
+    assert list(claude.last["output_config"]["format"]["schema"]["properties"])[0] == "language"
+    assert "quella di language (mai tradotte)" in claude.last_system
 
 
 def test_score_text_returns_the_shape_app_js_expects(unlocked, claude):
@@ -252,6 +272,48 @@ def test_score_normalization_clamps_and_fills_missing_rewrites(unlocked, claude)
     assert body["issue"]
     assert body["breakdown"] == {"frustration": 0, "clarity": 100, "warmth": 50, "pressure": 20}
     assert body["rewrites"] == {"clear": "Versione chiara.", "warm": "Versione chiara.", "firm": "Versione ferma.", "short": "Versione chiara."}
+    assert body["rewrite_translations"] == {"clear": "", "warm": "", "firm": "", "short": ""}
+
+
+def test_score_keeps_the_translations_of_the_versions(unlocked, claude):
+    # Luca, 30/10: a draft in Slovak for an Italian user. A version filled in from another one gets no translation,
+    # and one that only repeats the version is dropped.
+    rewrites = {"clear": "Môžeme to presunúť na zajtra?", "warm": "Prepáč, môžeme to presunúť na zajtra?", "firm": "", "short": "Zajtra?"}
+    translations = {
+        "clear": "Possiamo spostarlo a domani?",
+        "warm": " Scusa, possiamo spostarlo a domani? ",
+        "firm": "Spostiamolo a domani.",
+        "short": "zajtra?",
+    }
+    claude.reply_with(text_reply({**SCORE_PAYLOAD, "rewrites": rewrites, "rewrite_translations": translations}))
+    body = unlocked.post("/api/score/text", json={"text": "Dnes to nestihnem, zajtra?", "lang": "it"}).json()
+    assert body["rewrites"]["firm"] == "Môžeme to presunúť na zajtra?"
+    assert body["rewrite_translations"] == {
+        "clear": "Possiamo spostarlo a domani?",
+        "warm": "Scusa, possiamo spostarlo a domani?",
+        "firm": "",
+        "short": "",
+    }
+
+
+def test_score_puts_back_versions_swapped_with_their_translations(unlocked, claude):
+    # Seen once on 30/10: the versions of a Slovak draft came in Italian, and their «translations» in Slovak.
+    slovak = {
+        "clear": "Už tretíkrát to rušíš na poslednú chvíľu. Zajtra o siedmej?",
+        "warm": "Mrzí ma, keď to rušíš na poslednú chvíľu. Zajtra o siedmej?",
+        "firm": "Zajtra o siedmej, a už to nerušíš.",
+        "short": "Zajtra o siedmej?",
+    }
+    italian = {
+        "clear": "È la terza volta che disdici all'ultimo. Domani alle sette?",
+        "warm": "Mi dispiace quando disdici all'ultimo. Domani alle sette?",
+        "firm": "Domani alle sette, e non disdire più.",
+        "short": "Domani alle sette?",
+    }
+    claude.reply_with(text_reply({**SCORE_PAYLOAD, "rewrites": italian, "rewrite_translations": slovak}))
+    draft = "Už tretíkrát mi to rušíš na poslednú chvíľu. Tak zajtra o siedmej?"
+    body = unlocked.post("/api/score/text", json={"text": draft, "lang": "it"}).json()
+    assert body["rewrites"] == slovak and body["rewrite_translations"] == italian
 
 
 @pytest.mark.parametrize(

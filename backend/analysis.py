@@ -14,7 +14,7 @@ import re
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Iterable, Optional
 
 import anthropic
 
@@ -239,6 +239,7 @@ def call_claude(client: Any, request: ClaudeRequest, *, model: str, effort: str,
 # --- Normalization (schema shape only; the model's wording is kept) ----------------------
 
 _WHITESPACE = re.compile(r"\s+")
+_WORD = re.compile(r"\w{3,}")
 
 
 def clamp_0_100(value: Any) -> int:
@@ -339,7 +340,13 @@ def normalize_score(data: dict[str, Any], lang: str, draft: str) -> dict[str, An
     score = clamp_0_100(data.get("score"))
     breakdown = data.get("breakdown") if isinstance(data.get("breakdown"), dict) else {}
     raw_rewrites = data.get("rewrites") if isinstance(data.get("rewrites"), dict) else {}
+    raw_translations = data.get("rewrite_translations") if isinstance(data.get("rewrite_translations"), dict) else {}
     rewrites = {key: multi_line(raw_rewrites.get(key), MAX_TEXT_CHARS) for key in prompts.REWRITE_KEYS}
+    translations = {key: multi_line(raw_translations.get(key), MAX_TEXT_CHARS) for key in prompts.REWRITE_KEYS}
+    # The versions keep the language of the draft, so they reuse its words. On 30/10 the model once swapped them with
+    # their translations (the versions of a Slovak draft came in Italian): the texts that reuse more of the draft win.
+    if _shared_words(translations.values(), draft) > _shared_words(rewrites.values(), draft):
+        rewrites, translations = translations, rewrites
     # A missing rewrite falls back to another rewrite, or to the draft itself, never to canned text.
     filler = next((value for value in rewrites.values() if value), "") or multi_line(draft, MAX_TEXT_CHARS)
     return {
@@ -348,7 +355,16 @@ def normalize_score(data: dict[str, Any], lang: str, draft: str) -> dict[str, An
         "issue": single_line(data.get("issue"), 300) or text(lang, "issue_fallback"),
         "breakdown": {key: clamp_0_100(breakdown.get(key)) for key in prompts.BREAKDOWN_KEYS},
         "rewrites": {key: value or filler for key, value in rewrites.items()},
+        # What each version says in the language of the app (Luca, 30/10); none for a version filled in from another.
+        "rewrite_translations": {
+            key: _translation(translations[key], value, MAX_TEXT_CHARS) if value else "" for key, value in rewrites.items()
+        },
     }
+
+
+def _shared_words(texts: Iterable[str], draft: str) -> int:
+    """How many distinct words of the draft (3 letters or more) the texts reuse."""
+    return len(set(_WORD.findall(" ".join(texts).casefold())) & set(_WORD.findall(draft.casefold())))
 
 
 # --- Public entry point ------------------------------------------------------------------
