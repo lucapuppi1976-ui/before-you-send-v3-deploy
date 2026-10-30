@@ -544,6 +544,16 @@ details.reply-to textarea { min-height: 96px; margin-top: 8px; }
 .reply-lang option { background: var(--bg-2); color: var(--text); }
 .reply-lang-error { color: var(--warning); }
 
+/* «Continua la conversazione»: the box on the analysis screen and the earlier messages on the result (Luca, 30/10). */
+.follow-up { border: 1px dashed var(--primary); background: rgba(124,149,255,0.08); border-radius: var(--radius-xs); padding: 12px; }
+.follow-up p { margin: 0; }
+.follow-up label { color: var(--muted); font-size: .92rem; }
+.follow-up .ghost { justify-self: start; }
+.thread summary { cursor: pointer; font-weight: 600; }
+.thread-turn { margin-top: 10px; padding: 10px 12px; border-radius: var(--radius-xs); background: rgba(255,255,255,0.05); }
+.thread-turn.me { background: rgba(124,149,255,0.12); }
+.thread-turn p { margin: 0; color: var(--soft); white-space: pre-wrap; }
+
 /* History: compact cards that open the result; one entry can be deleted. */
 .history-card { position: relative; padding: 0; }
 .history-open {

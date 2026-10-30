@@ -11,7 +11,7 @@ from conftest import DECODE_PAYLOAD, JPEG_BYTES, PNG_BYTES, SCORE_PAYLOAD, fake_
 
 from backend.analysis import FALLBACK_BETA
 
-DECODE_KEYS = {"message_language", "message_translation", "verdict", "meaning", "flags", "guardrails", "tones", "replies", "source", "input", "lang"}
+DECODE_KEYS = {"message_language", "message_translation", "verdict", "meaning", "since_before", "flags", "guardrails", "tones", "replies", "source", "input", "lang"}
 SCORE_KEYS = {"score", "label", "issue", "breakdown", "rewrites", "rewrite_translations", "input", "lang"}
 TONE_KEYS = ["warmth", "clarity", "interest", "respect", "urgency"]
 BREAKDOWN_KEYS = ["frustration", "clarity", "warmth", "pressure"]
@@ -63,7 +63,7 @@ def test_claude_request_uses_structured_output_effort_and_the_fallback_branch(un
     assert output_format["type"] == "json_schema"
     schema = output_format["schema"]
     assert schema["additionalProperties"] is False
-    assert set(schema["required"]) == {"message_language", "message_translation", "verdict", "meaning", "flags", "guardrails", "tones", "replies"}
+    assert set(schema["required"]) == {"message_language", "message_translation", "verdict", "meaning", "since_before", "flags", "guardrails", "tones", "replies"}
     serialized = json.dumps(schema)
     for unsupported in ("minimum", "maximum", "minItems", "maxItems", "minLength", "maxLength"):
         assert unsupported not in serialized
@@ -245,6 +245,56 @@ def test_decode_gives_the_language_of_the_message_and_its_translation(unlocked, 
     assert body["message_language"] == "sk"
     assert body["message_translation"] == "Ciao, oggi non ce la faccio: possiamo spostarlo a domani?"
     assert unlocked.post("/api/decode/text", json={"text": message, "lang": "it"}).json()["message_language"] == ""
+
+
+HISTORY = [{"who": "them", "text": "Ahoj, dnes to nestihnem."}, {"who": "me", "text": "Dobre, kedy teda?"}]
+
+
+def test_a_message_that_continues_a_conversation_comes_with_the_earlier_ones(unlocked, claude):
+    # Luca, 30/10: «lo storico, come in Plantatam». The earlier messages go before the new one, marked as context, and
+    # the analysis says what changes compared with before.
+    claude.reply_with(text_reply({**DECODE_PAYLOAD, "since_before": "  Ora propone un giorno preciso. "}))
+    body = unlocked.post("/api/decode/text", json={"text": "Zajtra o siedmej?", "lang": "it", "history": HISTORY}).json()
+    assert body["since_before"] == "Ora propone un giorno preciso."
+    content = claude.last["messages"][0]["content"]
+    assert content.startswith("Contesto: i messaggi precedenti della stessa conversazione")
+    assert "<history>\n<them>\nAhoj, dnes to nestihnem.\n</them>\n<me>\nDobre, kedy teda?\n</me>\n</history>" in content
+    assert content.index("</history>") < content.index("<message>\nZajtra o siedmej?\n</message>")
+
+
+def test_without_earlier_messages_there_is_nothing_to_compare(unlocked, claude):
+    claude.reply_with(text_reply({**DECODE_PAYLOAD, "since_before": "Più freddo di prima."}))
+    body = unlocked.post("/api/decode/text", json={"text": "Zajtra o siedmej?", "lang": "it"}).json()
+    assert body["since_before"] == ""
+    assert "<history>" not in claude.last["messages"][0]["content"]
+
+
+@pytest.mark.parametrize(
+    "history",
+    [
+        [{"who": "them", "text": "x"}] * 9,
+        [{"who": "boss", "text": "x"}],
+        [{"who": "them", "text": "x" * 6001}],
+        [{"who": "them", "text": "x" * 5000}, {"who": "me", "text": "y" * 3001}],
+    ],
+)
+def test_the_earlier_messages_are_checked(unlocked, claude, history):
+    response = unlocked.post("/api/decode/text", json={"text": "Zajtra?", "lang": "it", "history": history})
+    assert response.status_code == 422
+    assert claude.calls == []
+
+
+def test_a_voice_note_or_a_screenshot_can_continue_a_conversation_too(unlocked, claude):
+    earlier = json.dumps(HISTORY)
+    unlocked.post("/api/decode/audio", data={"transcript": "Zajtra o siedmej?", "lang": "it", "history": earlier})
+    assert "<them>\nAhoj, dnes to nestihnem.\n</them>" in claude.last["messages"][0]["content"]
+    unlocked.post(
+        "/api/decode/image", files={"file": ("chat.png", PNG_BYTES, "image/png")}, data={"lang": "it", "history": earlier}
+    )
+    assert "<me>\nDobre, kedy teda?\n</me>" in claude.last["messages"][0]["content"][1]["text"]
+    calls = len(claude.calls)
+    response = unlocked.post("/api/decode/audio", data={"transcript": "Zajtra?", "lang": "it", "history": "not json"})
+    assert response.status_code == 422 and len(claude.calls) == calls
 
 
 TRANSLATE = "/api/replies/translate"

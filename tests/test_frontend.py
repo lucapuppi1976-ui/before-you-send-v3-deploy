@@ -184,13 +184,30 @@ def test_the_replies_can_be_written_in_the_language_the_user_picks():
     assert "'sk'" in re.search(r"const REPLY_LANGS = \[(.*?)\];", APP_JS).group(1)
     assert "new Intl.DisplayNames([currentLang], { type: 'language' })" in APP_JS
     assert "result.replyTranslations = { ...(result.replyTranslations || {}), [lang]: response.replies };" in APP_JS
-    assert "bindCopyButtons(grid, texts)" in APP_JS  # «Copia» copies the text shown, in the language picked
+    assert "bindCopyButtons(grid, texts, " in APP_JS  # «Copia» copies the text shown, in the language picked
     # The result on the screen is the one kept in the history, so its translations are saved with it.
-    assert APP_JS.count("latestDecodeResult = payload;") == 3
+    assert APP_JS.count("keepDecodeResult(result, '") == 3 and "latestDecodeResult = payload;" in APP_JS
     for data in LOCALES.values():
         for key in ("results.replyLanguage", "results.messageLanguage", "results.translatingReplies", "results.translateError"):
             assert data[key]
         assert "{lang}" in data["results.translatingReplies"]
+
+
+def test_a_conversation_can_continue_with_its_earlier_messages():
+    # Luca, 30/10: «lo storico, come in Plantatam» (like «Hacer otras fotos»). The next message goes with the earlier ones
+    # and the user's answer (the reply copied, when there is one), and the history keeps one card per conversation.
+    assert 'id="followUpBox"' in INDEX and 'id="followUpReply"' in INDEX and 'id="followUpCancel"' in INDEX
+    assert "continueConversation(result)" in APP_JS and "result.copiedReply = texts[index]" in APP_JS
+    assert "...(history.length ? { history } : {})" in APP_JS  # the text, as JSON
+    assert APP_JS.count("if (history.length) form.append('history', JSON.stringify(history));") == 2  # voice, screenshot
+    assert "threadId: followUp ? followUp.threadId : at" in APP_JS
+    assert "function threadKey(item)" in APP_JS and "t('confirm.deleteThread', { n: count })" in APP_JS
+    # As MAX_HISTORY_* in backend/config.py.
+    assert "const HISTORY_TURNS = 8;" in APP_JS and "const HISTORY_CHARS = 8000;" in APP_JS
+    for data in LOCALES.values():
+        for key in ("results.continue", "results.sinceBefore", "followUp.reply", "followUp.cancel", "thread.them", "thread.me"):
+            assert data[key]
+        assert "{date}" in data["followUp.line"] and "{n}" in data["history.messages"] and "{n}" in data["confirm.deleteThread"]
 
 
 def test_share_uses_the_phone_menu_and_falls_back_to_a_download():
@@ -205,7 +222,8 @@ def test_after_a_result_another_message_and_the_analyses_left():
 
 def test_history_cards_open_the_result_and_one_entry_can_be_deleted():
     assert "data-history-open" in APP_JS and "data-history-delete" in APP_JS
-    assert "window.confirm(t('confirm.deleteOne'))" in APP_JS
+    # One entry, or a whole conversation (Luca, 30/10), after a confirmation.
+    assert "window.confirm(count > 1 ? t('confirm.deleteThread', { n: count }) : t('confirm.deleteOne'))" in APP_JS
     assert "data-history-share" not in APP_JS
 
 

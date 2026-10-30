@@ -23,6 +23,9 @@ DEFAULT_DB_PATH = "./data/bys.db"
 
 MIN_SECRET_LENGTH = 32
 MAX_TEXT_CHARS = 6000
+# The earlier messages sent with a message that continues a conversation (the app sends the latest ones that fit).
+MAX_HISTORY_TURNS = 8
+MAX_HISTORY_CHARS = 8000
 MAX_CODE_CHARS = 128
 MB = 1024 * 1024
 

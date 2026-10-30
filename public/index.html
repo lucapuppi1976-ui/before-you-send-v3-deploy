@@ -181,6 +181,13 @@
     </div>
 
     <section class="card stack-sm">
+      <!-- «Continua la conversazione» (Luca, 30/10): the next message is read with the earlier ones and the user's answer. -->
+      <div id="followUpBox" class="follow-up stack-sm hidden" role="status">
+        <p id="followUpLine"></p>
+        <label for="followUpReply" data-i18n="followUp.reply">La tua risposta (facoltativa)</label>
+        <textarea id="followUpReply" rows="3" maxlength="6000" data-i18n-placeholder="followUp.replyPlaceholder" placeholder="Cosa hai risposto? Se l'hai copiata da qui, è già scritta." spellcheck="false" autocorrect="off" autocapitalize="sentences"></textarea>
+        <button class="ghost small" id="followUpCancel" type="button" data-i18n="followUp.cancel">Non continuare</button>
+      </div>
       <div class="tabbar" role="tablist">
         <button class="tab active" role="tab" aria-selected="true" aria-controls="decode-mode-text" data-decode-mode="text" data-i18n="decode.tab.text">Testo</button>
         <button class="tab" role="tab" aria-selected="false" aria-controls="decode-mode-voice" data-decode-mode="voice" data-i18n="decode.tab.voice">Vocale</button>

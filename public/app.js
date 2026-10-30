@@ -16,6 +16,9 @@ const LANGS = ['it', 'en', 'es', 'fr', 'de', 'ru'];
 // The languages offered for the ready replies, besides the one of the message (Luca, 30/10).
 const REPLY_LANGS = ['it', 'en', 'es', 'fr', 'de', 'pt', 'ru', 'uk', 'pl', 'cs', 'sk', 'sl', 'hr', 'sr', 'bg', 'ro', 'hu', 'el', 'tr', 'nl', 'sv', 'da', 'no', 'fi', 'ca', 'ar', 'zh', 'ja', 'ko', 'hi'];
 const LANGUAGE_CODE = /^[a-z]{2,3}$/;
+// The earlier messages sent with one that continues a conversation: as MAX_HISTORY_* in backend/config.py.
+const HISTORY_TURNS = 8;
+const HISTORY_CHARS = 8000;
 const DATE_LOCALES = { it: 'it-IT', en: 'en-US', es: 'es-ES', fr: 'fr-FR', de: 'de-DE', ru: 'ru-RU' };
 const UPLOAD_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
 const MAX_IMAGE_EDGE = 1600;
@@ -26,6 +29,7 @@ let currentDecodeMode = 'text';
 let lastSharePayload = null;
 let latestSendResult = null;
 let latestDecodeResult = null;
+let followUp = null; // «Continua la conversazione»: { result, at, threadId } of the analysis the next message continues
 let apiHealthy = false;
 let locales = {};
 let currentLang = localStorage.getItem(STORE.lang) || detectBrowserLang();
@@ -466,6 +470,7 @@ function bindHome() {
 
 function bindDecode() {
   $$('.tab').forEach((tab) => tab.addEventListener('click', () => setDecodeMode(tab.dataset.decodeMode)));
+  $('#followUpCancel')?.addEventListener('click', () => setFollowUp(null));
   $('#decodeTextSample')?.addEventListener('click', () => withAnalysisLock(() => fillExample('decodeText', '#decodeTextInput')));
   $('#decodeTextAnalyze')?.addEventListener('click', () => withAnalysisLock(async () => {
     const field = $('#decodeTextInput');
@@ -931,17 +936,23 @@ function setDecodeMode(mode) {
 async function runDecodeText(text) {
   showLoadingDecode(t('results.loading.decode'));
   try {
-    const result = await apiJson('/api/decode/text', { text, lang: currentLang });
-    // The same object is shown and kept in the history, so the translations of the replies are kept with it.
-    const payload = { ...result, source: 'text', input: text };
-    latestDecodeResult = payload;
-    renderDecodeResult(payload, 'text', text, { fresh: true });
-    saveHistory({
-      type: 'decode', title: result.verdict, subtitle: sourceLabel('text'), createdAt: new Date().toISOString(), payload,
-    });
+    const history = conversationHistory();
+    const result = await apiJson('/api/decode/text', { text, lang: currentLang, ...(history.length ? { history } : {}) });
+    keepDecodeResult(result, 'text', text, history);
   } catch (error) {
     showDecodeError(error);
   }
+}
+
+// The same object is shown and kept in the history, so the translations of the replies and the conversation the
+// message belongs to are kept with it.
+function keepDecodeResult(result, source, input, history) {
+  const at = new Date().toISOString();
+  const payload = { ...result, source, input, at, threadId: followUp ? followUp.threadId : at, thread: history };
+  latestDecodeResult = payload;
+  setFollowUp(null);
+  renderDecodeResult(payload, source, input, { fresh: true });
+  saveHistory({ type: 'decode', title: result.verdict, subtitle: sourceLabel(source), createdAt: at, payload });
 }
 
 async function runDecodeVoice() {
@@ -962,11 +973,10 @@ async function runDecodeVoice() {
     if (file) form.append('file', file, file.name || 'voice');
     else form.append('transcript', transcript);
     form.append('lang', currentLang);
+    const history = conversationHistory();
+    if (history.length) form.append('history', JSON.stringify(history));
     const result = await apiForm('/api/decode/audio', form);
-    const payload = { ...result, source: 'voice', input: result.transcript || transcript || '' };
-    latestDecodeResult = payload;
-    renderDecodeResult(payload, 'voice', payload.input, { fresh: true });
-    saveHistory({ type:'decode', title: result.verdict, subtitle: sourceLabel('voice'), createdAt: new Date().toISOString(), payload });
+    keepDecodeResult(result, 'voice', result.transcript || transcript || '', history);
   } catch (error) { showDecodeError(error); }
 }
 
@@ -987,11 +997,10 @@ async function runDecodeImage() {
       form.append('extracted_text', extractedText);
     }
     form.append('lang', currentLang);
+    const history = conversationHistory();
+    if (history.length) form.append('history', JSON.stringify(history));
     const result = await apiForm('/api/decode/image', form);
-    const payload = { ...result, source: 'image', input: result.extracted_text || extractedText || '' };
-    latestDecodeResult = payload;
-    renderDecodeResult(payload, 'image', payload.input, { fresh: true });
-    saveHistory({ type:'decode', title: result.verdict, subtitle: sourceLabel('image'), createdAt: new Date().toISOString(), payload });
+    keepDecodeResult(result, 'image', result.extracted_text || extractedText || '', history);
   } catch (error) { showDecodeError(error); }
 }
 
@@ -1146,14 +1155,24 @@ function renderDecodeResult(result, source, text, { fresh = false } = {}) {
     : '';
   const extractedBlock = heard || translated ? `<section class="card stack-sm">${heard}${translated}</section>` : '';
   const eyebrow = result.example ? `${t('results.example')} · ${sourceLabel(source)}` : sourceLabel(source);
+  // A message that continues a conversation: the earlier messages it was read with, and what changes (Luca, 30/10).
+  const thread = Array.isArray(result.thread) ? result.thread : [];
+  const earlier = thread.length
+    ? `<details class="card thread"><summary>${escapeHTML(t('results.earlier', { n: thread.length }))}</summary>${thread.map((turn) => `<div class="thread-turn ${turn.who === 'me' ? 'me' : 'them'}"><span class="result-kicker">${escapeHTML(t(turn.who === 'me' ? 'thread.me' : 'thread.them'))}</span><p>${escapeHTML(turn.text)}</p></div>`).join('')}</details>`
+    : '';
+  const sinceBefore = result.since_before
+    ? `<div class="result-block"><span class="result-kicker">${escapeHTML(t('results.sinceBefore'))}</span><p class="muted">${escapeHTML(result.since_before)}</p></div>`
+    : '';
   target.innerHTML = `
     ${resultNotice(result, fresh)}
+    ${earlier}
     ${extractedBlock}
     <section class="card stack-sm">
       <div class="result-header">
         <p class="eyebrow">${escapeHTML(eyebrow)}</p>
         <div class="result-block"><span class="result-kicker">${escapeHTML(t('results.verdict'))}</span><h2 class="result-title">${escapeHTML(result.verdict)}</h2></div>
         <div class="result-block"><span class="result-kicker">${escapeHTML(t('results.quick'))}</span><p class="muted">${escapeHTML(result.meaning)}</p></div>
+        ${sinceBefore}
       </div>
       <div class="result-block"><span class="result-kicker">${escapeHTML(t('results.signals'))}</span><div class="chips">${result.flags.map((flag) => `<div class="chip">${escapeHTML(flag)}</div>`).join('')}</div></div>
       <div class="metric-list">${metricRows(result.tones)}</div>
@@ -1168,7 +1187,9 @@ function renderDecodeResult(result, source, text, { fresh = false } = {}) {
       <div class="reply-grid" id="replyGrid"></div>
       <button class="ghost" id="shareDecodeBtn">${escapeHTML(t('results.share'))}</button>
     </section>
+    ${result.example ? '' : `<button class="ghost again-btn" data-continue>${escapeHTML(t('results.continue'))}</button>`}
     <button class="primary again-btn" data-again="decode">${escapeHTML(t('results.againDecode'))}</button>`;
+  target.querySelector('[data-continue]')?.addEventListener('click', () => continueConversation(result));
   showReplies(result, replyLanguage(result));
   $('#replyLang')?.addEventListener('change', (event) => showReplies(result, event.target.value));
   $('#shareDecodeBtn')?.addEventListener('click', () => {
@@ -1235,7 +1256,38 @@ async function showReplies(result, lang) {
   const texts = original ? result.replies.map((r) => r.text) : result.replyTranslations[lang];
   const label = result.lang === currentLang ? t('results.replyTranslation') : capitalized(languageName(result.lang));
   grid.innerHTML = result.replies.map((r, i) => (original ? copyCard(r.style, r.text, i, r.translation) : copyCard(r.style, texts[i], i, r.text, label))).join('');
-  bindCopyButtons(grid, texts);
+  // The reply copied is most likely the one sent: «Continua la conversazione» offers it as the user's answer.
+  bindCopyButtons(grid, texts, (index) => { result.copiedReply = texts[index]; persistHistory(); });
+}
+
+// --- «Continua la conversazione» (Luca, 30/10: «lo storico, come in Plantatam») ----------------------
+// Like «Hacer otras fotos»: the next message is analyzed with the earlier ones of the same conversation (and the
+// user's answer, when given), and the history keeps the messages of one conversation together.
+
+function continueConversation(result) {
+  startOver('decode');
+  setFollowUp({ result, at: result.at, threadId: result.threadId || result.at });
+  $('#followUpReply').value = result.copiedReply || '';
+}
+
+function setFollowUp(value) {
+  followUp = value || null;
+  $('#followUpBox')?.classList.toggle('hidden', !followUp);
+  if (followUp) $('#followUpLine').textContent = t('followUp.line', { date: formatDate(followUp.at) });
+  else if ($('#followUpReply')) $('#followUpReply').value = '';
+}
+
+// The earlier messages, oldest first: those the continued analysis had, its own message and the user's answer; only
+// the latest ones that fit go.
+function conversationHistory() {
+  if (!followUp) return [];
+  const previous = followUp.result;
+  const answer = $('#followUpReply').value.trim();
+  const turns = [...(Array.isArray(previous.thread) ? previous.thread : []), { who: 'them', text: previous.input || '' }]
+    .concat(answer ? [{ who: 'me', text: answer }] : [])
+    .filter((turn) => turn.text);
+  while (turns.length > HISTORY_TURNS || turns.reduce((sum, turn) => sum + turn.text.length, 0) > HISTORY_CHARS) turns.shift();
+  return turns;
 }
 
 // A ready-to-send text with its own «Copy» button (replies and rewritten versions). Under a text in another language,
@@ -1247,9 +1299,10 @@ function copyCard(title, text, index, translation = '', label = t('results.reply
   return `<div class="reply-card"><div class="reply-head"><h4>${escapeHTML(title)}</h4><button class="ghost small copy-btn" data-copy="${index}">${escapeHTML(t('results.copy'))}</button></div><p>${escapeHTML(text)}</p>${meaning}</div>`;
 }
 
-function bindCopyButtons(target, texts) {
+function bindCopyButtons(target, texts, onCopy) {
   $$('[data-copy]', target).forEach((btn) => btn.addEventListener('click', async () => {
     await copyText(texts[Number(btn.dataset.copy)] || '');
+    onCopy?.(Number(btn.dataset.copy));
     $$('[data-copy]', target).forEach((other) => { other.textContent = t('results.copy'); other.classList.remove('done'); });
     btn.textContent = t('results.copied');
     btn.classList.add('done');
@@ -1275,6 +1328,7 @@ function startOver(kind) {
   $('#voiceTextBox').open = false;
   $('#imageTextBox').open = false;
   latestDecodeResult = null;
+  setFollowUp(null);
   hideResult('#decodeResult');
   window.scrollTo({ top: 0 });
   // Text: the cursor in the field; voice note and screenshot: the big «Choose» button is the next step.
@@ -1333,21 +1387,30 @@ function saveHistory(entry) { historyLog.unshift(entry); historyLog = historyLog
 function renderHistory() {
   const target = $('#historyList');
   if (!historyLog.length) { target.innerHTML = `<div class="card empty-state">${escapeHTML(t('history.empty'))}</div>`; return; }
-  target.innerHTML = historyLog.map((item, idx) => {
+  // One card per conversation, like one per plant in Plantatam: its latest message, with how many there are.
+  const latest = historyLog.filter((item, idx) => historyLog.findIndex((other) => threadKey(other) === threadKey(item)) === idx);
+  target.innerHTML = latest.map((item) => {
+    const idx = historyLog.indexOf(item);
+    const count = historyLog.filter((other) => threadKey(other) === threadKey(item)).length;
     const kind = item.type === 'decode' ? sourceLabel(item.payload.source || 'text') : t('send.title');
+    const messages = count > 1 ? ` · ${escapeHTML(t('history.messages', { n: count }))}` : '';
     const input = item.payload.input ? `<span class="history-input">“${escapeHTML(item.payload.input)}”</span>` : '';
     const summary = item.type === 'decode' ? item.payload.meaning : item.payload.issue;
-    return `<article class="history-card"><button class="history-open" data-history-open="${idx}"><span class="meta">${formatDate(item.createdAt)} · ${escapeHTML(kind)}</span><span class="history-title">${escapeHTML(item.title)}</span>${input}<span class="history-summary">${escapeHTML(summary)}</span></button><button class="history-delete" data-history-delete="${idx}" aria-label="${escapeHTML(t('history.delete'))}" title="${escapeHTML(t('history.delete'))}">×</button></article>`;
+    return `<article class="history-card"><button class="history-open" data-history-open="${idx}"><span class="meta">${formatDate(item.createdAt)} · ${escapeHTML(kind)}${messages}</span><span class="history-title">${escapeHTML(item.title)}</span>${input}<span class="history-summary">${escapeHTML(summary)}</span></button><button class="history-delete" data-history-delete="${idx}" aria-label="${escapeHTML(t('history.delete'))}" title="${escapeHTML(t('history.delete'))}">×</button></article>`;
   }).join('');
   $$('[data-history-open]', target).forEach((btn) => btn.addEventListener('click', () => openFromHistory(Number(btn.dataset.historyOpen))));
   $$('[data-history-delete]', target).forEach((btn) => btn.addEventListener('click', () => {
-    if (!window.confirm(t('confirm.deleteOne'))) return;
-    historyLog.splice(Number(btn.dataset.historyDelete), 1);
+    const key = threadKey(historyLog[Number(btn.dataset.historyDelete)]);
+    const count = historyLog.filter((item) => threadKey(item) === key).length;
+    if (!window.confirm(count > 1 ? t('confirm.deleteThread', { n: count }) : t('confirm.deleteOne'))) return;
+    historyLog = historyLog.filter((item) => threadKey(item) !== key);
     persistHistory();
     renderHistory();
   }));
 }
-function openFromHistory(index) { const item = historyLog[index]; if (!item) return; if (item.type === 'decode') { setDecodeMode(item.payload.source || 'text'); openScreen('screen-decode', { scrollTop: false, restoreScroll: false }); renderDecodeResult(item.payload, item.payload.source || 'text', item.payload.input || ''); } else { openScreen('screen-send', { scrollTop: false, restoreScroll: false }); renderSendResult(item.payload, item.payload.input || ''); } }
+// The messages of one conversation share its key: the time of its first analysis («Continua la conversazione»).
+function threadKey(item) { return (item.type === 'decode' && item.payload.threadId) || item.createdAt; }
+function openFromHistory(index) { const item = historyLog[index]; if (!item) return; item.payload.at = item.payload.at || item.createdAt; if (item.type === 'decode') { setDecodeMode(item.payload.source || 'text'); openScreen('screen-decode', { scrollTop: false, restoreScroll: false }); renderDecodeResult(item.payload, item.payload.source || 'text', item.payload.input || ''); } else { openScreen('screen-send', { scrollTop: false, restoreScroll: false }); renderSendResult(item.payload, item.payload.input || ''); } }
 
 // «Share»: the result card as an image through the phone's share menu; where that is missing, it is downloaded.
 async function shareCard(filename) {

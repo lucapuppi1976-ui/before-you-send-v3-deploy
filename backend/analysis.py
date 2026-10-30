@@ -14,7 +14,7 @@ import re
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any, Iterable, Optional
+from typing import Any, Iterable, Mapping, Optional, Sequence
 
 import anthropic
 
@@ -117,15 +117,18 @@ def create_client(api_key: str, timeout_seconds: float, max_retries: int) -> ant
 # --- Requests --------------------------------------------------------------------------
 
 
-def decode_text_request(message: str, lang: str) -> ClaudeRequest:
+def decode_text_request(message: str, lang: str, history: Sequence[Mapping[str, str]] = ()) -> ClaudeRequest:
+    # `history`: the earlier messages of the same conversation, before the new one (Luca, 30/10).
     return ClaudeRequest(
         system=prompts.decode_system(lang),
-        messages=[{"role": "user", "content": prompts.user_text("decode", lang, message)}],
+        messages=[{"role": "user", "content": prompts.history_context(lang, history) + prompts.user_text("decode", lang, message)}],
         schema=prompts.decode_schema(),
     )
 
 
-def decode_image_request(image: bytes, media_type: str, lang: str) -> ClaudeRequest:
+def decode_image_request(
+    image: bytes, media_type: str, lang: str, history: Sequence[Mapping[str, str]] = ()
+) -> ClaudeRequest:
     if media_type not in IMAGE_MEDIA_TYPES:
         raise ValueError(f"unsupported image media type: {media_type}")
     content = [
@@ -133,7 +136,7 @@ def decode_image_request(image: bytes, media_type: str, lang: str) -> ClaudeRequ
             "type": "image",
             "source": {"type": "base64", "media_type": media_type, "data": base64.standard_b64encode(image).decode("ascii")},
         },
-        {"type": "text", "text": prompts.image_instruction(lang)},
+        {"type": "text", "text": prompts.history_context(lang, history) + prompts.image_instruction(lang)},
     ]
     return ClaudeRequest(
         system=prompts.vision_system(lang),
@@ -320,9 +323,10 @@ def _translation(value: Any, original: str, max_len: int) -> str:
 
 
 def normalize_decode(
-    data: dict[str, Any], lang: str, *, include_extracted: bool = False, original: str = ""
+    data: dict[str, Any], lang: str, *, include_extracted: bool = False, original: str = "", has_history: bool = False
 ) -> dict[str, Any]:
-    """`original` is the message or transcript sent to Claude: a «translation» that only repeats it is dropped."""
+    """`original` is the message or transcript sent to Claude: a «translation» that only repeats it is dropped.
+    `has_history`: earlier messages of the conversation were sent, so «compared with before» can say something."""
     lang = canonical_lang(lang)
     tones = data.get("tones") if isinstance(data.get("tones"), dict) else {}
     result: dict[str, Any] = {}
@@ -338,6 +342,7 @@ def normalize_decode(
     result.update(
         verdict=single_line(data.get("verdict"), 120) or text(lang, "verdict_fallback"),
         meaning=single_line(data.get("meaning"), 600) or text(lang, "meaning_fallback"),
+        since_before=single_line(data.get("since_before"), 300) if has_history else "",
         flags=fixed_list(data.get("flags"), 3, text(lang, "flag_fallbacks"), 60),
         guardrails=fixed_list(data.get("guardrails"), 2, text(lang, "guardrail_fallbacks"), 240),
         tones={key: clamp_0_100(tones.get(key)) for key in prompts.TONE_KEYS},
@@ -469,13 +474,17 @@ class Analyzer:
             "blocked": problem[0] if blocked else None,
         }
 
-    def decode_text(self, message: str, lang: str, **overrides: Any) -> tuple[dict[str, Any], ClaudeResult]:
-        call = self.run(decode_text_request(message, lang), **overrides)
-        return normalize_decode(call.data, lang, original=message), call
+    def decode_text(
+        self, message: str, lang: str, history: Sequence[Mapping[str, str]] = (), **overrides: Any
+    ) -> tuple[dict[str, Any], ClaudeResult]:
+        call = self.run(decode_text_request(message, lang, history), **overrides)
+        return normalize_decode(call.data, lang, original=message, has_history=bool(history)), call
 
-    def decode_image(self, image: bytes, media_type: str, lang: str, **overrides: Any) -> tuple[dict[str, Any], ClaudeResult]:
-        call = self.run(decode_image_request(image, media_type, lang), **overrides)
-        return normalize_decode(call.data, lang, include_extracted=True), call
+    def decode_image(
+        self, image: bytes, media_type: str, lang: str, history: Sequence[Mapping[str, str]] = (), **overrides: Any
+    ) -> tuple[dict[str, Any], ClaudeResult]:
+        call = self.run(decode_image_request(image, media_type, lang, history), **overrides)
+        return normalize_decode(call.data, lang, include_extracted=True, has_history=bool(history)), call
 
     def score_text(
         self, draft: str, lang: str, reply_to: Optional[str] = None, **overrides: Any

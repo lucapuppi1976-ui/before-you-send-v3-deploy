@@ -13,7 +13,7 @@ from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 from starlette.responses import Response
 from starlette.types import Scope
 
@@ -27,7 +27,18 @@ from .analysis import (
     sniff_image_type,
 )
 from .codes import CodeStore
-from .config import MAX_CODE_CHARS, MAX_TEXT_CHARS, MB, PUBLIC_DIR, ConfigError, Settings, load_settings, validate_settings
+from .config import (
+    MAX_CODE_CHARS,
+    MAX_HISTORY_CHARS,
+    MAX_HISTORY_TURNS,
+    MAX_TEXT_CHARS,
+    MB,
+    PUBLIC_DIR,
+    ConfigError,
+    Settings,
+    load_settings,
+    validate_settings,
+)
 from .gate import SHARED_CODE_ID, Access, Gate
 from .i18n import SUPPORTED_LANGS, canonical_lang, text
 from .middleware import BodySizeLimitMiddleware, GuardMiddleware, SecurityHeadersMiddleware
@@ -49,6 +60,21 @@ class TextPayload(BaseModel):
 class ScorePayload(TextPayload):
     # Optional: the message the draft replies to, so the score can take it into account.
     reply_to: Optional[str] = Field(default=None, max_length=MAX_TEXT_CHARS)
+
+
+class Turn(BaseModel):
+    # One earlier message of the conversation: «them» wrote it to the user, «me» is what the user answered.
+    who: Literal["them", "me"]
+    text: str = Field(max_length=MAX_TEXT_CHARS)
+
+
+History = Annotated[list[Turn], Field(max_length=MAX_HISTORY_TURNS)]
+HISTORY_FORM = TypeAdapter(History)  # the same list, sent as JSON in a form field with a voice note or a screenshot
+
+
+class DecodePayload(TextPayload):
+    # The earlier messages of the same conversation, oldest first (Luca, 30/10: «lo storico, come in Plantatam»).
+    history: History = Field(default_factory=list)
 
 
 class RepliesPayload(BaseModel):
@@ -166,6 +192,21 @@ def create_app(settings: Optional[Settings] = None, *, public_dir: Path = PUBLIC
         if isinstance(exc, TranscriptionError):
             return api_error(502, "transcription_failed", text(lang, "error_transcription"))
         return api_error(502, "analysis_failed", text(lang, "error_generic"))
+
+    def history_of(turns: list[Turn], lang: str) -> list[dict[str, str]]:
+        history = [{"who": turn.who, "text": turn.text.strip()} for turn in turns if turn.text.strip()]
+        if sum(len(turn["text"]) for turn in history) > MAX_HISTORY_CHARS:
+            raise api_error(422, "too_long", text(lang, "error_text_too_long", max=MAX_HISTORY_CHARS))
+        return history
+
+    def history_from_form(raw: Optional[str], lang: str) -> list[dict[str, str]]:
+        if not raw:
+            return []
+        try:
+            turns = HISTORY_FORM.validate_json(raw)
+        except ValidationError:
+            raise api_error(422, "invalid_input", text(lang, "error_invalid_input")) from None
+        return history_of(turns, lang)
 
     def read_upload(upload: Optional[UploadFile], max_bytes: int, lang: str, too_large_key: str) -> Optional[bytes]:
         if upload is None:
@@ -291,15 +332,16 @@ def create_app(settings: Optional[Settings] = None, *, public_dir: Path = PUBLIC
     # --- AI endpoints (gate + rate limit already checked by GuardMiddleware) ------------
 
     @app.post("/api/decode/text")
-    def decode_text(request: Request, payload: TextPayload) -> JSONResponse:
+    def decode_text(request: Request, payload: DecodePayload) -> JSONResponse:
         lang = canonical_lang(payload.lang)
         message = payload.text.strip()
         if not message:
             raise api_error(400, "empty_text", text(lang, "error_empty_text"))
+        history = history_of(payload.history, lang)
         require_analysis(lang)
 
         def work() -> dict[str, Any]:
-            result, _ = analyzer.decode_text(message, lang)
+            result, _ = analyzer.decode_text(message, lang, history)
             result.update(source="text", input=message, lang=lang)
             return result
 
@@ -345,14 +387,16 @@ def create_app(settings: Optional[Settings] = None, *, public_dir: Path = PUBLIC
         file: Optional[UploadFile] = File(default=None),
         transcript: Optional[str] = Form(default=None, max_length=MAX_TEXT_CHARS),
         lang: Optional[str] = Form(default="it", max_length=16),
+        history: Optional[str] = Form(default=None, max_length=2 * MAX_HISTORY_CHARS),
     ) -> JSONResponse:
         lang = canonical_lang(lang)
         typed = (transcript or "").strip()
+        earlier = history_from_form(history, lang)
         if typed:
             require_analysis(lang)
 
             def work_typed() -> dict[str, Any]:
-                result, _ = analyzer.decode_text(typed, lang)
+                result, _ = analyzer.decode_text(typed, lang, earlier)
                 result.update(source="voice", input=typed, lang=lang, transcript=typed)
                 return result
 
@@ -386,7 +430,7 @@ def create_app(settings: Optional[Settings] = None, *, public_dir: Path = PUBLIC
             # Same limit as typed text: a very long recording is not sent to Claude (the unit is refunded).
             if len(heard) > MAX_TEXT_CHARS:
                 raise TranscriptionTooLong("transcript too long")
-            result, _ = analyzer.decode_text(heard, lang)
+            result, _ = analyzer.decode_text(heard, lang, earlier)
             result.update(source="voice", input=heard, lang=lang, transcript=heard)
             return result
 
@@ -398,9 +442,11 @@ def create_app(settings: Optional[Settings] = None, *, public_dir: Path = PUBLIC
         file: Optional[UploadFile] = File(default=None),
         extracted_text: Optional[str] = Form(default=None, max_length=MAX_TEXT_CHARS),
         lang: Optional[str] = Form(default="it", max_length=16),
+        history: Optional[str] = Form(default=None, max_length=2 * MAX_HISTORY_CHARS),
     ) -> JSONResponse:
         lang = canonical_lang(lang)
         typed = (extracted_text or "").strip()
+        earlier = history_from_form(history, lang)
         image = read_upload(file, settings.max_image_bytes, lang, "error_image_too_large")
         if image is None:
             if not typed:
@@ -408,7 +454,7 @@ def create_app(settings: Optional[Settings] = None, *, public_dir: Path = PUBLIC
             require_analysis(lang)
 
             def work_typed() -> dict[str, Any]:
-                result, _ = analyzer.decode_text(typed, lang)
+                result, _ = analyzer.decode_text(typed, lang, earlier)
                 result.update(source="image", input=typed, lang=lang, extracted_text=typed, extraction_confidence=100)
                 return result
 
@@ -421,7 +467,7 @@ def create_app(settings: Optional[Settings] = None, *, public_dir: Path = PUBLIC
             raise api_error(415, "unsupported_image", text(lang, "error_image_type"))
 
         def work() -> dict[str, Any]:
-            result, _ = analyzer.decode_image(image, media_type, lang)
+            result, _ = analyzer.decode_image(image, media_type, lang, earlier)
             result.update(source="image", input=result["extracted_text"], lang=lang)
             return result
 

@@ -2,7 +2,7 @@
 // the cache as the offline fallback; cache first only for icons and images. /api/ and /admin/
 // are never cached, and neither is any non-OK response. A demo recording (DEMO_VOICE in
 // app.js, none for now) would not be precached: the audio element loads it on demand.
-const CACHE = 'bys-v5-usability-10';
+const CACHE = 'bys-v5-usability-11';
 const PRECACHE = [
   './',
   './index.html',
