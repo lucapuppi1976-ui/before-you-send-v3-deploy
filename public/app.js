@@ -41,6 +41,11 @@ let gateState = {
 };
 let capabilities = { text: true, voice: true, image: true };
 let remainingAnalyses = null;
+let payment = { enabled: false }; // the pack, from /api/config (only for codes with a quota)
+let packCodeId = null; // the code the pack is added to, sent to Paddle as custom data
+let paddleLoading = null;
+let buying = false; // the checkout is open: its events belong to this purchase
+let checkoutLoaded = false;
 
 // Free examples (samples/<lang>.json, built by tools/build_samples.py): Spanish messages (the app is presented
 // first in the Canary Islands) with results already analyzed in each app language. They are shown without calling
@@ -51,6 +56,12 @@ let examples = null; // { lang, data }
 const DEMO_VOICE = '';
 // From this many analyses left, the Home and each new result say how many remain.
 const LOW_QUOTA = 5;
+// The pack of analyses sold after the free ones, paid in Paddle's checkout over the page.
+const PADDLE_JS = 'https://cdn.paddle.com/paddle/v2/paddle.js';
+// A pack paid whose analyses the server has not added yet (the page closed right after paying): asked again when the
+// app opens.
+const PENDING_PACK_KEY = 'bys_pending_pack';
+const PACK_POLLS = 6; // «Paddle is still confirming» (202): ask again every 2 seconds, about 12 seconds in all
 // One analysis at a time: the buttons are locked while one runs, so a double tap does not use up two analyses.
 let analysisBusy = false;
 const ANALYSIS_BUTTONS = [
@@ -555,6 +566,8 @@ function bindSettings() {
   $('#lockAccessBtn')?.addEventListener('click', lockGate);
   $('#settingsContactBtn')?.addEventListener('click', openContact);
   $('#trialContactBtn')?.addEventListener('click', openContact);
+  $('#buyMore')?.addEventListener('click', buyPack);
+  $('#buyPackHome')?.addEventListener('click', buyPack);
 }
 
 // --- free examples and the one-analysis-at-a-time lock -----------------------------------------------------------
@@ -786,8 +799,14 @@ function applyConfig(data) {
   capabilities = { text: supports.text !== false, voice: supports.voice !== false, image: supports.image !== false };
   // "Free trial" only on trial codes: not for paid codes or the shared tester code.
   $('#homeEyebrow')?.classList.toggle('hidden', (data && data.access && data.access.plan) !== 'trial');
+  payment = (data && data.payment) || { enabled: false };
+  const codeId = data && data.access ? data.access.codeId : null;
+  packCodeId = Number.isInteger(codeId) ? codeId : null;
   setRemaining(data && data.access ? data.access.remaining : null);
   applyCapabilities();
+  // A pack paid while the app was closing: its analyses are asked for now.
+  const pending = pendingPack();
+  if (pending && packOnSale() && !buying) confirmPack(pending);
 }
 
 function applyCapabilities() {
@@ -834,6 +853,184 @@ function renderQuota() {
     pill.classList.toggle('hidden', n === null);
     pill.classList.toggle('warn', n !== null && n <= LOW_QUOTA);
   });
+  renderPack(n);
+}
+
+// --- the pack of analyses, paid in Paddle's checkout over the page (Luca, 22/10: 200 analyses for 9,99 €) ------------
+// Paddle sells it as Merchant of Record: card data never reach us. After paying, the server asks Paddle for the
+// transaction and adds the analyses to this same code (backend/payments.py): no new code to type. As in Plantatam.
+
+function packOnSale() {
+  return Boolean(payment && payment.enabled && packCodeId !== null);
+}
+
+function packPrice() {
+  const { priceCents, currency } = payment;
+  return new Intl.NumberFormat(DATE_LOCALES[currentLang] || currentLang, { style: 'currency', currency }).format(priceCents / 100);
+}
+
+// The lead of the end-of-trial cards: the title already says the analyses are used up.
+function packLead() {
+  const lead = t('pack.lead', { n: payment.analyses });
+  const cut = lead.indexOf('. ');
+  return cut > 0 ? lead.slice(cut + 2) : lead;
+}
+
+function renderPack(n) {
+  // Under the analyses left: «Compra altre 200 analisi · 9,99 €» while the pack is for sale; with none left, the
+  // end-of-trial card of the Home has a big button and «Scrivici» small under it.
+  const onSale = packOnSale();
+  const values = onSale ? { n: payment.analyses, price: packPrice() } : {};
+  const more = $('#buyMore');
+  if (more) {
+    more.classList.toggle('hidden', !onSale || n === null || n === 0);
+    if (onSale) more.textContent = t('pack.more', values);
+  }
+  const buy = $('#buyPackHome');
+  if (buy) {
+    buy.classList.toggle('hidden', !onSale);
+    if (onSale) buy.textContent = t('pack.buy', values);
+  }
+  $('#packNoteHome')?.classList.toggle('hidden', !onSale);
+  const text = $('#trialEndedText');
+  if (text) text.textContent = onSale ? packLead() : t('trial.next');
+  const contact = $('#trialContactBtn');
+  if (contact) contact.className = onSale ? 'ghost small' : 'primary';
+}
+
+function packStatus(message, isError = false) {
+  // On the Home under its card, and in the end-of-trial card of an analysis when the purchase started there.
+  [$('#packStatus'), ...$$('[data-pack-status]')].filter(Boolean).forEach((box) => {
+    box.textContent = message || '';
+    box.classList.toggle('error', isError);
+    box.classList.toggle('hidden', !message);
+  });
+}
+
+function pendingPack() {
+  try {
+    return localStorage.getItem(PENDING_PACK_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+function keepPendingPack(txn) {
+  try {
+    if (txn) localStorage.setItem(PENDING_PACK_KEY, txn);
+    else localStorage.removeItem(PENDING_PACK_KEY);
+  } catch {}
+}
+
+function loadPaddle() {
+  if (!paddleLoading) {
+    paddleLoading = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = PADDLE_JS;
+      script.addEventListener('load', () => {
+        try {
+          if (payment.environment === 'sandbox') window.Paddle.Environment.set('sandbox');
+          window.Paddle.Initialize({ token: payment.clientToken, eventCallback: paddleEvent });
+          resolve(window.Paddle);
+        } catch (error) {
+          reject(error);
+        }
+      });
+      script.addEventListener('error', () => reject(new Error('paddle.js did not load')));
+      document.head.append(script);
+    });
+    paddleLoading.catch(() => { paddleLoading = null; });
+  }
+  return paddleLoading;
+}
+
+async function buyPack() {
+  if (!packOnSale() || buying) return;
+  packStatus(t('pack.opening'));
+  try {
+    const paddle = await loadPaddle();
+    buying = true;
+    checkoutLoaded = false;
+    paddle.Checkout.open({
+      items: [{ priceId: payment.priceId, quantity: 1 }],
+      customData: { bys_code: String(packCodeId) }, // the server adds the analyses to this code only
+      settings: { displayMode: 'overlay', locale: currentLang, theme: 'dark', showAddDiscounts: false },
+    });
+  } catch (error) {
+    console.warn(error);
+    buying = false;
+    packStatus(t('pack.error'), true);
+  }
+}
+
+function paddleEvent(event) {
+  if (!event || !buying) return;
+  if (event.name === 'checkout.loaded') {
+    checkoutLoaded = true;
+    packStatus('');
+    return;
+  }
+  if (event.name === 'checkout.error') {
+    // Once the checkout is open, an error is a mistake in its form (an empty email, say), and the checkout shows it.
+    if (checkoutLoaded) return;
+    finishPack(t('pack.error'), true); // it could not open: Paddle says why only in the console
+    return;
+  }
+  if (event.name === 'checkout.closed') {
+    if (!pendingPack()) {
+      buying = false; // closed without paying
+      packStatus('');
+    }
+    return;
+  }
+  if (event.name !== 'checkout.completed') return;
+  const txn = event.data && event.data.transaction_id;
+  if (!txn) return;
+  keepPendingPack(txn); // kept at once: an app closed before the answer asks again when it opens
+  confirmPack(txn);
+}
+
+async function confirmPack(txn, attempt = 0) {
+  packStatus(t('pack.checking'));
+  const again = (delay) => setTimeout(() => confirmPack(txn, attempt + 1), delay);
+  let res;
+  try {
+    res = await fetch('/api/pack/paid', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transaction_id: txn, lang: currentLang }),
+      credentials: 'same-origin',
+    });
+  } catch {
+    if (attempt < PACK_POLLS) again(3000);
+    else finishPack(t('pack.later'), true); // still kept: asked again at the next opening
+    return;
+  }
+  if (res.ok) {
+    const body = await res.json().catch(() => ({}));
+    keepPendingPack('');
+    $('#homeEyebrow')?.classList.add('hidden'); // a paid code: no «free trial» any more
+    setRemaining(Number(body.remaining));
+    finishPack(t('pack.done', { n: body.remaining }));
+    return;
+  }
+  if (res.status === 202 && attempt < PACK_POLLS) {
+    again(2000);
+    return;
+  }
+  if (res.status === 202 || res.status === 401 || res.status === 429 || res.status >= 500) {
+    finishPack(res.status === 401 ? t('gate.error.required') : t('pack.later'), true); // kept: asked again later
+    return;
+  }
+  keepPendingPack(''); // refused for good (another code, not paid): asking again would not change it
+  const data = await res.json().catch(() => ({}));
+  finishPack(extractErrorMessage(data, t('pack.error')), true);
+}
+
+function finishPack(message, isError = false) {
+  buying = false;
+  if (window.Paddle && window.Paddle.Checkout) window.Paddle.Checkout.close();
+  packStatus(message, isError);
 }
 
 function registerInstall() {
@@ -1117,8 +1314,14 @@ function showDecodeError(error) { renderErrorCard($('#decodeResult'), t('error.d
 function showSendError(error) { renderErrorCard($('#sendResult'), t('error.send'), error); }
 function renderErrorCard(target, title, error) {
   const message = typeof error === 'string' ? error : (error?.message || t('error.generic'));
-  // Trial ended (one code per email): not an error, the way to continue is to write to us.
-  if (error?.trialEnded) {
+  // Trial ended (one code per email): not an error. With the analyses used up and the pack for sale, the way on is to
+  // buy it; otherwise to write to us.
+  if (error?.trialEnded && error.trialEnded === 'exhausted' && packOnSale()) {
+    target.classList.remove('hidden');
+    const values = { n: payment.analyses, price: packPrice() };
+    target.innerHTML = `<section class="card trial-card" role="status"><strong>${escapeHTML(trialEndedTitle(error.trialEnded))}</strong><p>${escapeHTML(packLead())}</p><button type="button" class="primary" data-buy-pack>${escapeHTML(t('pack.buy', values))}</button><p class="pack-note">${escapeHTML(t('pack.note'))}</p><p class="pack-status hidden" role="status" aria-live="polite" data-pack-status></p><button type="button" class="ghost small" data-contact>${escapeHTML(t('error.contact'))}</button></section>`;
+    target.querySelector('[data-buy-pack]')?.addEventListener('click', buyPack);
+  } else if (error?.trialEnded) {
     target.classList.remove('hidden');
     target.innerHTML = `<section class="card trial-card" role="status"><strong>${escapeHTML(trialEndedTitle(error.trialEnded))}</strong><p>${escapeHTML(t('trial.next'))}</p><button class="primary" data-contact>${escapeHTML(t('error.contact'))}</button></section>`;
   } else {

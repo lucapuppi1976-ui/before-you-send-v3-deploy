@@ -21,6 +21,13 @@ DEFAULT_TRANSCRIBE_MODEL = "whisper-large-v3-turbo"
 DEFAULT_ACCESS_PAGE_URL = "https://bb1studio.com/before-you-send/access/"
 DEFAULT_DB_PATH = "./data/bys.db"
 
+# The pack sold after the free analyses (Luca, 22/10/2026: «9,99 € per 200 analisi, senza scadenza»), taxes included.
+# Paddle sells it as Merchant of Record: sandbox in the test copy, live once Paddle approves bys.bb1studio.com
+# (backend/payments.py).
+DEFAULT_PACK_ANALYSES = 200
+DEFAULT_PACK_PRICE_CENTS = 999
+PADDLE_ENVIRONMENTS = ("sandbox", "live")
+
 MIN_SECRET_LENGTH = 32
 MAX_TEXT_CHARS = 6000
 # The earlier messages sent with a message that continues a conversation (the app sends the latest ones that fit).
@@ -62,6 +69,16 @@ class Settings:
     db_path: Path = ROOT / "data" / "bys.db"
     trial_quota: int = 30
     admin_token: str = ""
+    # The pack the app sells (the price shown; Paddle charges the price of its catalogue, tools/paddle_catalogo.py).
+    pack_analyses: int = DEFAULT_PACK_ANALYSES
+    pack_price_cents: int = DEFAULT_PACK_PRICE_CENTS
+    currency: str = "EUR"
+    paddle_environment: str = "sandbox"
+    paddle_api_key: str = ""
+    paddle_client_token: str = ""  # public by nature: Paddle.js runs in the page with it
+    paddle_price_pack: str = ""
+    paddle_webhook_secret: str = ""  # of the notification destination towards /api/paddle/webhook
+    paddle_timeout_seconds: float = 15.0
     # Abuse and cost limits
     max_image_bytes: int = 5 * MB
     max_audio_bytes: int = 15 * MB
@@ -158,6 +175,15 @@ def load_settings(environ: Optional[Mapping[str, str]] = None) -> Settings:
         db_path=_path(_text(env, "BYS_DB_PATH", DEFAULT_DB_PATH)),
         trial_quota=_integer(env, "BYS_TRIAL_QUOTA", 30, minimum=1),
         admin_token=_text(env, "BYS_ADMIN_TOKEN"),
+        pack_analyses=_integer(env, "BYS_PACK_ANALYSES", DEFAULT_PACK_ANALYSES, minimum=1),
+        pack_price_cents=_integer(env, "BYS_PACK_PRICE_CENTS", DEFAULT_PACK_PRICE_CENTS, minimum=1),
+        currency=_text(env, "BYS_CURRENCY", "EUR").upper(),
+        paddle_environment=_text(env, "BYS_PADDLE_ENV", "sandbox").lower(),
+        paddle_api_key=_text(env, "BYS_PADDLE_API_KEY"),
+        paddle_client_token=_text(env, "BYS_PADDLE_CLIENT_TOKEN"),
+        paddle_price_pack=_text(env, "BYS_PADDLE_PRICE_PACK"),
+        paddle_webhook_secret=_text(env, "BYS_PADDLE_WEBHOOK_SECRET"),
+        paddle_timeout_seconds=_number(env, "BYS_PADDLE_TIMEOUT_SECONDS", 15.0, minimum=2.0),
         max_image_bytes=_integer(env, "BYS_MAX_IMAGE_MB", 5, minimum=1) * MB,
         max_audio_bytes=_integer(env, "BYS_MAX_AUDIO_MB", 15, minimum=1) * MB,
         unlock_per_minute=_integer(env, "BYS_RL_UNLOCK_PER_MINUTE", 5),
@@ -186,6 +212,15 @@ def validate_settings(settings: Settings) -> list[str]:
         raise ConfigError(f"BYS_LOG_LEVEL must be one of {', '.join(sorted(_LOG_LEVELS))}.")
     if not settings.access_page_url.startswith(("https://", "http://")):
         raise ConfigError("BYS_ACCESS_PAGE_URL must be an http(s) URL.")
+    if settings.paddle_environment not in PADDLE_ENVIRONMENTS:
+        raise ConfigError(f"BYS_PADDLE_ENV must be one of {', '.join(PADDLE_ENVIRONMENTS)}.")
+    # Client-side tokens of Paddle.js start with test_ in the sandbox and live_ in the live environment.
+    token_prefix = "test_" if settings.paddle_environment == "sandbox" else "live_"
+    if settings.paddle_client_token and not settings.paddle_client_token.startswith(token_prefix):
+        raise ConfigError(f"BYS_PADDLE_CLIENT_TOKEN must start with {token_prefix} in the "
+                          f"{settings.paddle_environment} environment.")
+    if len(settings.currency) != 3 or not settings.currency.isalpha():
+        raise ConfigError("BYS_CURRENCY must be a three-letter currency code, such as EUR.")
 
     warnings: list[str] = []
     if not settings.gate_enabled:

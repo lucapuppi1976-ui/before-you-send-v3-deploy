@@ -16,27 +16,53 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from .gate import Gate
 from .ratelimit import RateLimiter
 
+# Unlocked code and the AI rate limits: the paths that call Claude or another service at our cost, and the check of a
+# payment with Paddle (it needs the code, and each call asks Paddle).
 AI_PATHS = frozenset(
     {"/api/decode/text", "/api/score/text", "/api/decode/audio", "/api/decode/image", "/api/replies/translate"}
 )
+PACK_PATH = "/api/pack/paid"
+GUARDED_PATHS = AI_PATHS | {PACK_PATH}
 UNLOCK_PATH = "/api/access/unlock"
 ADMIN_PREFIX = "/admin"
 LOCALHOST = "127.0.0.1"
 
-CONTENT_SECURITY_POLICY = (
-    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; "
-    "media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
-)
-# The page itself may use the microphone ("Record": a voice note played on the loudspeaker); never the camera.
-PERMISSIONS_POLICY = "camera=(), microphone=(self), geolocation=(), payment=(), usb=()"
-_SECURITY_HEADERS = (
-    (b"content-security-policy", CONTENT_SECURITY_POLICY.encode("ascii")),
-    (b"x-content-type-options", b"nosniff"),
-    (b"referrer-policy", b"strict-origin-when-cross-origin"),
-    (b"permissions-policy", PERMISSIONS_POLICY.encode("ascii")),
-    (b"x-frame-options", b"DENY"),
-)
-_SECURITY_HEADER_NAMES = {name for name, _ in _SECURITY_HEADERS}
+# Paddle.js comes from (sandbox-)cdn.paddle.com with its stylesheet, and its checkout opens in a frame of
+# (sandbox-)buy.paddle.com: as in Plantatam and Vistobueno, seen in the sandbox on 31/10.
+PADDLE_SOURCES = "https://*.paddle.com"
+PADDLE_CHECKOUT_ORIGINS = '"https://sandbox-buy.paddle.com" "https://buy.paddle.com"'
+
+
+def content_security_policy(payments: bool = False) -> str:
+    paddle = f" {PADDLE_SOURCES}" if payments else ""
+    frames = f"frame-src{paddle}; " if payments else ""
+    return (
+        f"default-src 'self'; script-src 'self'{paddle}; style-src 'self' 'unsafe-inline'{paddle}; "
+        f"img-src 'self' data: blob:{paddle}; media-src 'self' blob:; connect-src 'self'{paddle}; {frames}"
+        "frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+    )
+
+
+def permissions_policy(payments: bool = False) -> str:
+    # The page itself may use the microphone ("Record": a voice note played on the loudspeaker); never the camera.
+    # Apple Pay and Google Pay run in Paddle's checkout frame.
+    payment = f"(self {PADDLE_CHECKOUT_ORIGINS})" if payments else "()"
+    return f"camera=(), microphone=(self), geolocation=(), payment={payment}, usb=()"
+
+
+def security_headers(payments: bool = False) -> tuple[tuple[bytes, bytes], ...]:
+    return (
+        (b"content-security-policy", content_security_policy(payments).encode("ascii")),
+        (b"x-content-type-options", b"nosniff"),
+        (b"referrer-policy", b"strict-origin-when-cross-origin"),
+        (b"permissions-policy", permissions_policy(payments).encode("ascii")),
+        (b"x-frame-options", b"DENY"),
+    )
+
+
+CONTENT_SECURITY_POLICY = content_security_policy()  # without the pack for sale
+PERMISSIONS_POLICY = permissions_policy()
+_SECURITY_HEADER_NAMES = {name for name, _ in security_headers()}
 
 
 def client_host(scope: Scope) -> str:
@@ -59,8 +85,9 @@ async def _reject(
 
 
 class SecurityHeadersMiddleware:
-    def __init__(self, app: ASGIApp) -> None:
+    def __init__(self, app: ASGIApp, *, payments: bool = False) -> None:
         self.app = app
+        self.headers = security_headers(payments)  # Paddle's checkout is allowed only when the pack can be bought
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -75,7 +102,7 @@ class SecurityHeadersMiddleware:
                 if no_store:
                     drop.add(b"cache-control")
                 headers = [(key, value) for key, value in message.get("headers", []) if key.lower() not in drop]
-                headers.extend(_SECURITY_HEADERS)
+                headers.extend(self.headers)
                 if no_store:
                     headers.append((b"cache-control", b"no-store"))
                 message = {**message, "headers": headers}
@@ -101,7 +128,7 @@ class GuardMiddleware:
             await self.app(scope, receive, send)
             return
         path = scope["path"]
-        if path in AI_PATHS:
+        if path in GUARDED_PATHS:
             access = self.gate.access_from_cookies(Request(scope).cookies)
             if access is None:
                 await _reject(scope, receive, send, 401, "Access locked. Enter your access code to continue.")

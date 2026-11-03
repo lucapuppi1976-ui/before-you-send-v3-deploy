@@ -467,6 +467,12 @@ button:disabled:active { transform: none; }
   text-align: left;
 }
 .trial-card p { margin: 0; color: var(--soft); }
+/* The pack: the note under the button, the purchase status, and «Buy 200 more» under the analyses left. */
+.trial-card .pack-note, .pack-note { font-size: .86rem; color: var(--muted, var(--soft)); }
+.trial-card .ghost.small { justify-self: start; }
+.buy-more { justify-self: start; }
+.pack-status { margin: 0; color: var(--soft); font-size: .92rem; }
+.pack-status.error { color: #ffd9d9; }
 
 /* Texts stay hidden until they are translated: no flash of the HTML's own language while the app opens. */
 html.i18n-pending [data-i18n] { visibility: hidden; }

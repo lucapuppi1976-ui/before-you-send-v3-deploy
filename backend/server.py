@@ -1,6 +1,7 @@
 """FastAPI application: routes, middleware stack and the public/ static files."""
 from __future__ import annotations
 
+import json
 import logging
 import sqlite3
 import sys
@@ -41,7 +42,8 @@ from .config import (
 )
 from .gate import SHARED_CODE_ID, Access, Gate
 from .i18n import SUPPORTED_LANGS, canonical_lang, text
-from .middleware import BodySizeLimitMiddleware, GuardMiddleware, SecurityHeadersMiddleware
+from .middleware import PACK_PATH, BodySizeLimitMiddleware, GuardMiddleware, SecurityHeadersMiddleware
+from .payments import CODE_FIELD, TRANSACTION_ID, Paddle, PaymentUnavailable
 from .ratelimit import DAY, HOUR, MINUTE, RateLimiter
 from .transcription import TranscriptionBusy, TranscriptionEmpty, TranscriptionError, TranscriptionTooLong
 
@@ -50,6 +52,9 @@ log = logging.getLogger("bys")
 LOCKED = "Access locked. Enter your access code to continue."
 MULTIPART_OVERHEAD = 64 * 1024  # room for form boundaries and the small text fields next to a file
 SHARE_TARGET_PATH = "/share-target"  # the share_target action in public/manifest.webmanifest
+# Paddle's notifications of a paid pack (signed with the secret of the notification destination, once BYS sells).
+WEBHOOK_PATH = "/api/paddle/webhook"
+WEBHOOK_EVENTS = ("transaction.paid", "transaction.completed")
 
 
 class TextPayload(BaseModel):
@@ -87,6 +92,12 @@ class RepliesPayload(BaseModel):
 
 class AccessPayload(BaseModel):
     code: str = Field(max_length=MAX_CODE_CHARS)
+    lang: Optional[str] = Field(default=None, max_length=16)
+
+
+class PackPayload(BaseModel):
+    # The transaction Paddle's checkout reports when the pack is paid (checkout.completed).
+    transaction_id: str = Field(max_length=80)
     lang: Optional[str] = Field(default=None, max_length=16)
 
 
@@ -145,10 +156,12 @@ def create_app(settings: Optional[Settings] = None, *, public_dir: Path = PUBLIC
     gate = Gate(settings, store)
     analyzer = Analyzer.from_settings(settings)
     access_page = settings.access_page_url
+    paddle = Paddle.from_settings(settings)
     log.info(
-        "BYS starting: gate=%s model=%s effort=%s voice=%s db=%s",
+        "BYS starting: gate=%s model=%s effort=%s voice=%s db=%s pack=%s",
         "on" if settings.gate_enabled else "OFF", settings.model, settings.effort,
         "on" if settings.voice_ready else "off", settings.db_path,
+        f"paddle {settings.paddle_environment}" if paddle.enabled else "off",
     )
 
     app = FastAPI(title="Before You Send", docs_url=None, redoc_url=None, openapi_url=None)
@@ -156,6 +169,7 @@ def create_app(settings: Optional[Settings] = None, *, public_dir: Path = PUBLIC
     app.state.store = store
     app.state.gate = gate
     app.state.analyzer = analyzer
+    app.state.paddle = paddle
 
     # --- helpers -----------------------------------------------------------------------
 
@@ -274,7 +288,8 @@ def create_app(settings: Optional[Settings] = None, *, public_dir: Path = PUBLIC
         if not gate.enabled:
             return JSONResponse({"ok": True, "enabled": False, "unlocked": True, "accessPage": access_page})
         lang = canonical_lang(payload.lang)
-        result = gate.check_code(payload.code)
+        # With no analyses left the code still opens the app while the pack is for sale: to buy more.
+        result = gate.check_code(payload.code, allow_used_up=paddle.enabled)
         if result.status == "invalid":
             log.info("unlock rejected: unknown code")
             raise HTTPException(status_code=403, detail="Invalid access code.")
@@ -318,16 +333,94 @@ def create_app(settings: Optional[Settings] = None, *, public_dir: Path = PUBLIC
         else:
             plan, remaining = (record.plan, record.remaining) if record else ("trial", 0)
         ready = analyzer.available
+        # The pack is for sale, when Paddle is configured, to codes with a quota: the app sends the code id to Paddle
+        # as custom data.
+        payable = paddle.enabled and access.metered and remaining is not None
         response = JSONResponse({
             "supports": {"text": ready, "voice": ready and bool(settings.groq_api_key), "image": ready, "shareCard": True},
             "supportedLanguages": sorted(SUPPORTED_LANGS),
             "demoSamples": True,
-            "access": {"plan": plan, "remaining": remaining},
+            "access": {"plan": plan, "remaining": remaining, **({"codeId": access.code_id} if payable else {})},
+            "payment": paddle.public_config() if payable else {"enabled": False},
         })
         # The app asks for its config every time it opens: an access cookie older than a day starts its days again.
         if access.code_id is not None and gate.needs_renewal(request.cookies):
             set_access_cookie(response, request, access.code_id)
         return response
+
+    # --- the pack of analyses, paid with Paddle (gate + rate limit checked by GuardMiddleware) ----------------
+
+    @app.post(PACK_PATH)
+    def pack_paid(payload: PackPayload, request: Request) -> JSONResponse:
+        """After the checkout: Paddle confirms the transaction, then its analyses join the code that asked."""
+        lang = canonical_lang(payload.lang)
+        access: Optional[Access] = request.scope.get("state", {}).get("bys_access")
+        if access is None:
+            raise HTTPException(status_code=401, detail=LOCKED)
+        record = store.get(access.code_id) if access.metered else None
+        if record is None or record.quota is None:
+            raise api_error(409, "not_payable", text(lang, "error_not_payable"))
+        if not paddle.enabled:
+            raise api_error(503, "payment_unavailable", text(lang, "error_payment_unavailable"))
+        if not TRANSACTION_ID.fullmatch(payload.transaction_id):
+            raise api_error(400, "invalid_input", text(lang, "error_invalid_input"))
+        try:
+            transaction = paddle.transaction(payload.transaction_id)
+        except PaymentUnavailable:
+            raise api_error(502, "payment_check_failed", text(lang, "error_payment_check")) from None
+        check = paddle.check(transaction or {}, code_id=record.id)
+        if check.status == "pending":
+            # The app asks again in a moment: Paddle confirms most payments within seconds.
+            return JSONResponse(
+                {"detail": {"code": "payment_pending", "message": text(lang, "error_payment_pending")}},
+                status_code=202, headers={"Retry-After": "2"},
+            )
+        if check.status != "paid":
+            log.warning("pack refused code id=%s txn=%s: %s", record.id, payload.transaction_id,
+                        check.reason if transaction is not None else "unknown transaction")
+            raise api_error(402, "payment_mismatch", text(lang, "error_payment_mismatch"))
+        analyses = paddle.analyses * check.packs
+        outcome = store.add_pack(record.id, payload.transaction_id, analyses)
+        if outcome.status == "refused" or outcome.record is None:
+            log.warning("pack refused code id=%s txn=%s: %s", record.id, payload.transaction_id, outcome.reason)
+            raise api_error(402, "payment_mismatch", text(lang, "error_payment_mismatch"))
+        log.info("pack %s code id=%s txn=%s analyses=%s remaining=%s", outcome.status, record.id,
+                 payload.transaction_id, analyses, outcome.record.remaining)
+        remaining = outcome.record.remaining
+        return JSONResponse({"status": outcome.status, "remaining": remaining},
+                            headers={"X-BYS-Remaining": str(remaining)})
+
+    @app.post(WEBHOOK_PATH, include_in_schema=False)
+    async def paddle_webhook(request: Request) -> dict[str, bool]:
+        """Paddle tells us about a paid pack, so its analyses arrive even if the app is never opened again."""
+        raw = await request.body()
+        if not paddle.verify_webhook(raw, request.headers.get("paddle-signature")):
+            raise HTTPException(status_code=401, detail="Invalid signature.")
+        try:
+            event = json.loads(raw)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid JSON.") from None
+        if not isinstance(event, dict) or event.get("event_type") not in WEBHOOK_EVENTS:
+            return {"ok": True}  # other events, or the payments of the other apps on the same Paddle account
+        data = event.get("data")
+        if not isinstance(data, dict):
+            return {"ok": True}
+        try:
+            code_id = int(str((data.get("custom_data") or {}).get(CODE_FIELD, "")))
+        except ValueError:
+            return {"ok": True}  # not a pack of Before You Send
+        check = paddle.check(data, code_id=code_id)
+        transaction_id = str(data.get("id", ""))
+        if check.status != "paid" or not TRANSACTION_ID.fullmatch(transaction_id):
+            log.info("webhook %s code id=%s not counted: %s", event.get("event_type"), code_id,
+                     check.reason or check.status or "transaction id")
+            return {"ok": True}
+        analyses = paddle.analyses * check.packs
+        outcome = store.add_pack(code_id, transaction_id, analyses)
+        remaining = outcome.record.remaining if outcome.record else None
+        log.info("pack %s by webhook code id=%s txn=%s analyses=%s remaining=%s%s", outcome.status, code_id,
+                 transaction_id, analyses, remaining, f" ({outcome.reason})" if outcome.reason else "")
+        return {"ok": True}
 
     # --- AI endpoints (gate + rate limit already checked by GuardMiddleware) ------------
 
@@ -526,6 +619,7 @@ def create_app(settings: Optional[Settings] = None, *, public_dir: Path = PUBLIC
         unlock_limiter=RateLimiter([(settings.unlock_per_minute, MINUTE), (settings.unlock_per_hour, HOUR)]),
         admin_token=settings.admin_token,
     )
-    app.add_middleware(SecurityHeadersMiddleware)  # outermost, so every response gets the headers
+    # Outermost, so every response gets the headers; Paddle's checkout only while the pack can be bought.
+    app.add_middleware(SecurityHeadersMiddleware, payments=paddle.enabled)
     app.mount("/", PublicFiles(directory=str(public_dir), html=True), name="public")
     return app

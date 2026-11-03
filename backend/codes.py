@@ -37,6 +37,13 @@ CREATE TABLE IF NOT EXISTS access_codes (
     revoked_at INTEGER,
     last_used_at INTEGER
 );
+-- Packs paid with Paddle (backend/payments.py): one row per transaction, so a transaction adds its analyses once.
+CREATE TABLE IF NOT EXISTS payments (
+    transaction_id TEXT PRIMARY KEY,
+    code_id INTEGER NOT NULL,
+    analyses INTEGER NOT NULL CHECK (analyses > 0),
+    created_at INTEGER NOT NULL
+);
 """
 
 
@@ -89,6 +96,13 @@ class ConsumeOutcome:
     ok: bool
     record: Optional[CodeRecord]
     reason: Optional[str] = None  # "missing", "revoked", "expired" or "exhausted" when not ok
+
+
+@dataclass(frozen=True)
+class PackOutcome:
+    status: str  # "added", "already" (this transaction was counted before) or "refused"
+    record: Optional[CodeRecord]
+    reason: str = ""  # for the logs only, when refused
 
 
 def _record(row: sqlite3.Row) -> CodeRecord:
@@ -215,3 +229,32 @@ class CodeStore:
             return conn.execute(
                 "UPDATE access_codes SET plan = 'paid', quota = ? WHERE id = ? AND plan = 'trial'", (quota, code_id)
             ).rowcount == 1
+
+    def add_pack(self, code_id: int, transaction_id: str, analyses: int, now: Optional[float] = None) -> PackOutcome:
+        """A paid pack: its analyses join the code, which becomes «paid» and no longer expires. Once per transaction."""
+        created_at = int(time.time() if now is None else now)
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            try:
+                done = conn.execute("SELECT code_id FROM payments WHERE transaction_id = ?", (transaction_id,)).fetchone()
+                row = conn.execute(f"SELECT {_COLUMNS} FROM access_codes WHERE id = ?", (code_id,)).fetchone()
+                record = _record(row) if row is not None else None
+                if done is not None:
+                    status, reason = ("already", "") if done["code_id"] == code_id else ("refused", "another code")
+                elif record is None or record.status(created_at) in ("revoked", "expired") or record.quota is None:
+                    status, reason = "refused", "code missing, revoked, expired or without a quota"
+                else:
+                    conn.execute(
+                        "INSERT INTO payments (transaction_id, code_id, analyses, created_at) VALUES (?, ?, ?, ?)",
+                        (transaction_id, code_id, analyses, created_at),
+                    )
+                    conn.execute(
+                        "UPDATE access_codes SET plan = 'paid', quota = quota + ?, expires_at = NULL WHERE id = ?",
+                        (analyses, code_id),
+                    )
+                    status, reason = "added", ""
+                conn.execute("COMMIT")
+            except Exception:
+                conn.execute("ROLLBACK")
+                raise
+        return PackOutcome(status, self.get(code_id), reason)

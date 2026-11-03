@@ -223,3 +223,38 @@ Revocare un codice: `tools\codes.py revoke ID`. Disconnettere tutti: cambia `BYS
 - `render.yaml` ha `autoDeploy: true`: **ogni merge su `main` fa un deploy su Render**. Prima del merge imposta su Render `ANTHROPIC_API_KEY`, `BYS_GATE_SECRET` (almeno 32 caratteri, altrimenti la nuova versione non parte), `BYS_GATE_EPOCH` ed eventualmente `GROQ_API_KEY`; togli `OPENAI_API_KEY` e `BYS_PUBLIC_DEPLOY`.
 - Su Render il disco non è persistente: il database dei codici si azzera a ogni deploy. Finché il DNS punta a Render usa `BYS_ACCESS_CODE`.
 - Quando il DNS punta alla VPS e gli smoke test passano, sospendi il servizio su Render.
+
+## 11. Il pacchetto di analisi (Paddle)
+
+Dopo le 30 analisi gratis si comprano **200 analisi a 9,99 €** (Luca, 22/10/2026), una volta sola, senza scadenza.
+Paddle le vende a nome suo («Merchant of Record»: incassa, applica le tasse di ogni paese, manda la ricevuta) e il
+server le aggiunge allo stesso codice (`backend/payments.py`, tabella `payments`, una volta per transazione). Lo
+stesso codice di Plantatam, preparato il 3/11/2026 nella copia di prova (Luca: «Sì, preparalo»).
+
+- **L'app:** con il pacchetto in vendita, un codice senza analisi apre ancora l'app (per comprarne altre). La Home
+  mostra «200 analisi · 9,99 €» nella scheda di fine prova e «Compra altre 200 analisi · 9,99 €» sotto le analisi
+  rimaste; anche la scheda di fine prova di un'analisi ha il pulsante. La cassa di Paddle si apre sopra la pagina
+  (Paddle.js da `cdn.paddle.com`, CSP e `payment=` solo quando il pacchetto è in vendita).
+- **Dopo il pagamento:** l'app manda l'id della transazione a `POST /api/pack/paid`; il server chiede a Paddle la
+  transazione e aggiunge le analisi solo se è pagata, al prezzo del pacchetto e per il codice che l'ha chiesta
+  (`custom_data.bys_code`). L'app tiene l'id finché il server non risponde: se si chiude subito dopo il pagamento, la
+  conferma arriva alla riapertura.
+- **Webhook firmato:** `POST /api/paddle/webhook` controlla la firma `Paddle-Signature` con
+  `BYS_PADDLE_WEBHOOK_SECRET` e aggiunge le analisi anche se l'app non viene più aperta; ignora gli altri eventi e i
+  pagamenti delle altre app dello stesso account Paddle. Serve l'indirizzo pubblico: nella copia di prova non c'è.
+- **Variabili:** `BYS_PADDLE_ENV`, `BYS_PADDLE_API_KEY`, `BYS_PADDLE_PRICE_PACK`, `BYS_PADDLE_CLIENT_TOKEN`,
+  `BYS_PADDLE_WEBHOOK_SECRET` (vedi `.env.example`). Senza chiave, prezzo e token l'app non vende niente.
+- **Copia di prova (3/11/2026):** sandbox, chiave dello stesso account sandbox di Plantatam e Vistobueno, prezzo del
+  22/10 `pri_01m5j4r1b9qrrz09xbys1t6w89` («Before You Send · 200 análisis», 9,99 € tasse incluse, ora un solo
+  pacchetto per pagamento) e token nuovo, con `tools\paddle_catalogo.py --write-env`. Provato nel browser con la
+  carta di prova 4242: codice senza analisi → «200 análisis · 9,99 €» → cassa di Paddle → «Listo: te quedan 200
+  análisis» (nel log `pack added … analyses=200 remaining=200`).
+- **Per vendere davvero (ognuno con l'OK di Luca):**
+  1. sul sito, nella pagina di Before You Send e nelle condizioni: prezzo del pacchetto, Paddle come rivenditore e
+     rimborso entro 14 giorni se il pacchetto non è stato usato (deciso il 22/10);
+  2. prezzo e token live con la chiave live (`tools\paddle_catalogo.py --write-env` nella cartella del servizio,
+     con le righe live nel `.env`), poi `tools\paddle_webhook.py --write-env` verso
+     `https://bys.bb1studio.com/api/paddle/webhook`;
+  3. installazione nel servizio (`git merge --ff-only`, test, `nssm restart BYS`);
+  4. Luca manda `bys.bb1studio.com` in approvazione a Paddle (Website approval), come Plantatam e Vistobueno;
+  5. un pagamento vero piccolo di Luca, poi il rimborso.

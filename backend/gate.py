@@ -56,7 +56,8 @@ class Gate:
     def enabled(self) -> bool:
         return self.settings.gate_enabled
 
-    def check_code(self, raw_code: str, now: Optional[float] = None) -> UnlockResult:
+    def check_code(self, raw_code: str, now: Optional[float] = None, allow_used_up: bool = False) -> UnlockResult:
+        """allow_used_up: while the pack can be bought, a code with no analyses left still opens the app, to buy more."""
         normalized = normalize_code(raw_code)
         if not normalized:
             return UnlockResult("invalid")
@@ -68,7 +69,8 @@ class Gate:
         record = self.store.find(raw_code)
         if record is None:
             return UnlockResult("invalid")
-        if record.status(now) != "active":
+        status = record.status(now)
+        if status != "active" and not (allow_used_up and status == "exhausted"):
             return UnlockResult("ended", record=record)
         return UnlockResult("ok", Access(record.id), record)
 

@@ -136,11 +136,15 @@
 
     <div class="stack home-stack">
       <div id="quotaInfo" class="quota-pill hidden" aria-live="polite"></div>
+      <button type="button" id="buyMore" class="ghost small buy-more hidden"></button>
       <div id="trialEndedHome" class="trial-card hidden" role="status">
         <strong id="trialEndedTitle"></strong>
-        <p data-i18n="trial.next">Vuoi continuare a usare Before You Send? Scrivici e ti spieghiamo come.</p>
+        <p id="trialEndedText" data-i18n="trial.next">Vuoi continuare a usare Before You Send? Scrivici e ti spieghiamo come.</p>
+        <button type="button" class="primary hidden" id="buyPackHome"></button>
+        <p id="packNoteHome" class="pack-note hidden" data-i18n="pack.note">Pagamento sicuro con Paddle, una volta sola. Le analisi non scadono.</p>
         <button class="primary" id="trialContactBtn" data-i18n="error.contact">Scrivici</button>
       </div>
+      <p id="packStatus" class="pack-status hidden" role="status" aria-live="polite"></p>
       <div id="serviceNotice" class="service-notice hidden" role="alert">
         <p id="serviceNoticeText"></p>
         <button class="ghost small" id="refreshApiHealth" data-i18n="home.service.retry">Riprova</button>
